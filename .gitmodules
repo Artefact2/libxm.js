@@ -1,0 +1,3 @@
+[submodule "libxm"]
+	path = libxm
+	url = git://github.com/Artefact2/libxm.git

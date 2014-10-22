@@ -1,0 +1,43 @@
+body {
+	font-size: 2em;
+	text-align: center;
+}
+
+label {
+	display: block;
+}
+
+pre {
+	margin: .5em;
+	font-weight: bold;
+}
+
+input, button {
+	margin: .5em;
+	font-size: 1em;
+}
+
+button {
+	font-size: 1.5em;
+	font-weight: bold;
+	padding: .5em;
+}
+
+p#modules {
+	font-size: .5em;
+}
+
+ul {
+	list-style-type: none;
+}
+
+h1 {
+	margin-bottom: 0;
+}
+
+h1 + p {
+	margin-top: 0;
+	font-size: 0.5em;
+	font-style: italic;
+	margin-bottom: 4em;
+}
