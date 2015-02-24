@@ -23,35 +23,9 @@ $(function() {
 	var moduleContext = null;
 	var loopCount = 1;
 
-	$("p#nojs").remove();
-	var form = $(document.createElement('form'));
-	form.submit(function(e) { e.preventDefault(); });
-
-	var label = $(document.createElement('label'));
-	label.text('Upload your .xm file…');
-
-	var input = $(document.createElement('input'));
-	input.prop('type', 'file');
-
-	var player = $(document.createElement('div'));
-	var mname = $(document.createElement('pre'));
-	var mtracker = $(document.createElement('pre'));
-
-	var pform = $(document.createElement('form'));
-	pform.submit(function(e) { e.preventDefault(); });
-
-	var play = $(document.createElement('button'));
-	play.text('► Play');
-
-	var stop = $(document.createElement('button'));
-	stop.text('■ Stop');
-
-	input.change(function() {
-		var file = input.get(0).files[0];
+	var loadModule = function(file, success, failure) {
 		var reader = new FileReader();
 		reader.onload = function() {
-			if(!stop.prop('disabled')) stop.click();
-
 			if(moduleContext !== null) {
 				Module._xm_free_context(moduleContext);
 				moduleContext = null;
@@ -66,27 +40,17 @@ $(function() {
 			Module._free(moduleStringBuffer);
 
 			if(ret !== 0) {
-				mname.text('Broken module. Check the console for more info.');
-				mtracker.text('');
-				play.prop('disabled', true);
-				stop.prop('disabled', true);
+				failure();
 				return;
 			}
 
 			moduleContext = getValue(moduleContextPtr, '*');
-
-			mname.text(Pointer_stringify(Module._xm_get_module_name(moduleContext)));
-			mtracker.text(Pointer_stringify(Module._xm_get_tracker_name(moduleContext)));
-			stop.prop('disabled', true);
-			play.prop('disabled', false).click();
+			success();
 		};
 		reader.readAsArrayBuffer(file);
-	});
+	};
 
-	play.click(function() {
-		play.prop('disabled', true);
-		stop.prop('disabled', false);
-
+	var play = function() {
 		var playNextBuffer = function(buflen, when) {
 			audioBuffer = audioContext.createBuffer(2, buflen, _RATE);
 			var l = audioBuffer.getChannelData(0);
@@ -124,26 +88,71 @@ $(function() {
 		};
 
 		playBufferAndDelayNextBuffer();
-	});
+	};
 
-	stop.click(function() {
+	var pause = function() {
+		if(timeout === null) return;
+		
 		clearTimeout(timeout);
+		timeout = null;
 
 		/* XXX: this is awful */
 		audioBufferSource.stop();
 		if(prevABS !== null) prevABS.stop();
 		if(prevPrevABS !== null) prevPrevABS.stop();
+	};
 
-		play.prop('disabled', false);
-		stop.prop('disabled', true);
+	$("p#nojs").remove();
+	var form = $(document.createElement('form'));
+	form.submit(function(e) { e.preventDefault(); });
+
+	var label = $(document.createElement('label'));
+	label.text('Upload your .xm file…');
+
+	var input = $(document.createElement('input'));
+	input.prop('type', 'file');
+
+	var player = $(document.createElement('div'));
+	var mname = $(document.createElement('pre'));
+	var mtracker = $(document.createElement('pre'));
+
+	var pform = $(document.createElement('form'));
+	pform.submit(function(e) { e.preventDefault(); });
+
+	var ppb = $(document.createElement('button'));
+	ppb.text('► Play');
+
+	input.change(function() {
+		if(timeout !== null) {
+			ppb.click();
+		}
+		
+		loadModule(input.get(0).files[0], function() {
+			mname.text(Pointer_stringify(Module._xm_get_module_name(moduleContext)));
+			mtracker.text(Pointer_stringify(Module._xm_get_tracker_name(moduleContext)));
+			ppb.prop('disabled', false).click();
+		}, function() {
+			mname.text('Broken module. Check the console for more info.');
+			mtracker.text('');
+			ppb.prop('disabled', true);
+		});
 	});
 
-	play.prop('disabled', true);
-	stop.prop('disabled', true);
+	ppb.click(function() {
+		if(timeout === null) {
+			play();
+			ppb.text('⏸ Pause');
+		} else {
+			pause();
+			ppb.text('► Play');
+		}
+	});
+
+	ppb.prop('disabled', true);
 
 	form.append(label, input);
-	pform.append(play, stop);
+	pform.append(ppb);
 	player.append(mname, mtracker, pform);
-	$("p#modules").before(form, player);
+	$("p.modules").before(form, player);
 
 });

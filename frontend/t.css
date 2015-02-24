@@ -18,12 +18,14 @@ input, button {
 }
 
 button {
-	font-size: 1.5em;
+	font-size: 1em;
 	font-weight: bold;
 	padding: .5em;
+	display: inline-block;
+	width: 8em;
 }
 
-p#modules {
+p.modules, ul.modules {
 	font-size: .5em;
 }
 
