@@ -8,98 +8,109 @@
 
 $(function() {
 
-	var _BUFLEN = 96000;
+	var _BUFLEN = 6000;
 	var _RATE = 48000;
+	var _BUFTIME = _BUFLEN / _RATE;
 
 	var audioContext = new (window.AudioContext || window.webkitAudioContext)();
-	var t0 = new Date().getTime() / 1000;
-	var timeout = null;
-	var audioBuffer = null;
-	var audioBufferSource = null;
-	var prevABS = null;
-	var prevPrevABS = null;
+	var buffers = [
+		audioContext.createBuffer(2, _BUFLEN, _RATE),
+		audioContext.createBuffer(2, _BUFLEN, _RATE),
+	];
+	var sources = [ null, null ];
+	var playing = null;
+
+	var xmActions = [];
 	var cFloatArray = Module._malloc(2 * _BUFLEN * 4);
 	var moduleContextPtr = Module._malloc(4);
 	var moduleContext = null;
-	var loopCount = 1;
 
+	var runXmContextAction = function(action) {
+		if(xmActions.length > 0) {
+			xmActions.push(action);
+			return;
+		}
+
+		xmActions.push(action);
+
+		while(xmActions.length > 0) {
+			(xmActions.shift())();
+		}
+	};
+	
 	var loadModule = function(file, success, failure) {
 		var reader = new FileReader();
 		reader.onload = function() {
-			if(moduleContext !== null) {
-				Module._xm_free_context(moduleContext);
-				moduleContext = null;
-			}
+			runXmContextAction(function() {
+				if(moduleContext !== null) {
+					Module._xm_free_context(moduleContext);
+					moduleContext = null;
+				}
 
-			var view = new Int8Array(reader.result);
-			var moduleStringBuffer = Module._malloc(view.length);
-			Module.writeArrayToMemory(view, moduleStringBuffer);
-			var ret = Module._xm_create_context(
-				moduleContextPtr, moduleStringBuffer, _RATE
-			);
-			Module._free(moduleStringBuffer);
+				var view = new Int8Array(reader.result);
+				var moduleStringBuffer = Module._malloc(view.length);
+				Module.writeArrayToMemory(view, moduleStringBuffer);
+				var ret = Module._xm_create_context(
+					moduleContextPtr, moduleStringBuffer, _RATE
+				);
+				Module._free(moduleStringBuffer);
 
-			if(ret !== 0) {
+				if(ret !== 0) {
+					moduleContext = null;
+					playing = false;
+				} else {
+					moduleContext = getValue(moduleContextPtr, '*');
+				}
+			})
+
+			if(moduleContext === null) {
 				failure();
 				return;
 			}
 
-			moduleContext = getValue(moduleContextPtr, '*');
 			success();
 		};
 		reader.readAsArrayBuffer(file);
 	};
 
 	var play = function() {
-		var playNextBuffer = function(buflen, when) {
-			audioBuffer = audioContext.createBuffer(2, buflen, _RATE);
-			var l = audioBuffer.getChannelData(0);
-			var r = audioBuffer.getChannelData(1);
-
-			Module._xm_generate_samples(moduleContext, cFloatArray, buflen);
-			for(var i = 0; i < buflen; ++i) {
-				l[i] = Module.getValue(cFloatArray + 8 * i, 'float');
-				r[i] = Module.getValue(cFloatArray + 8 * i + 4, 'float');
+		var makeSourceGenerator = function(index, startTime, interval) {
+			if(playing === false) {
+				return function() {
+					sources[index] = null;
+				};
 			}
+			
+			return function() {
+				var s = audioContext.createBufferSource();
+				s.onended = makeSourceGenerator(index, startTime + interval, interval);
+				s.buffer = buffers[index];
+				s.connect(audioContext.destination);
+				sources[index] = s;
 
-			prevPrevABS = prevABS;
-			prevABS = audioBufferSource;
-			audioBufferSource = audioContext.createBufferSource();
-			audioBufferSource.buffer = audioBuffer;
-			audioBufferSource.connect(audioContext.destination);
-			audioBufferSource.start(when);
+				var l = s.buffer.getChannelData(0);
+				var r = s.buffer.getChannelData(1);
+
+				runXmContextAction(function() {
+					Module._xm_generate_samples(moduleContext, cFloatArray, _BUFLEN);
+					for(var j = 0; j < _BUFLEN; ++j) {
+						l[j] = Module.getValue(cFloatArray + 8 * j, 'float');
+						r[j] = Module.getValue(cFloatArray + 8 * j + 4, 'float');
+					}
+				});
+
+				s.start(startTime);
+			};
 		};
-
-		var delta = new Date().getTime() / 1000 - t0 + 1;
-		var bufferDuration = _BUFLEN / _RATE;
-		var curTime = delta;
-
-		/* First buffer is a bit wonky, use a shorter length */
-		playNextBuffer(_BUFLEN / 4.0, curTime);
-		curTime += bufferDuration / 4.0;
-
-		var playBufferAndDelayNextBuffer = function() {
-			var t = new Date().getTime();
-			playNextBuffer(_BUFLEN, curTime);
-			curTime += bufferDuration;
-			t = new Date().getTime() - t;
-
-			timeout = setTimeout(playBufferAndDelayNextBuffer, 1000 * bufferDuration - t);
-		};
-
-		playBufferAndDelayNextBuffer();
+		
+		playing = true;
+		var t = audioContext.currentTime + _BUFTIME;
+		(makeSourceGenerator(0, t, 2 * _BUFTIME))();
+		(makeSourceGenerator(1, t + _BUFTIME, 2 * _BUFTIME))();
 	};
 
 	var pause = function() {
-		if(timeout === null) return;
-		
-		clearTimeout(timeout);
-		timeout = null;
-
-		/* XXX: this is awful */
-		audioBufferSource.stop();
-		if(prevABS !== null) prevABS.stop();
-		if(prevPrevABS !== null) prevPrevABS.stop();
+		playing = false;
 	};
 
 	$("p#nojs").remove();
@@ -122,15 +133,13 @@ $(function() {
 	var ppb = $(document.createElement('button'));
 	ppb.text('► Play');
 
-	input.change(function() {
-		if(timeout !== null) {
-			ppb.click();
-		}
-		
+	input.change(function() {		
 		loadModule(input.get(0).files[0], function() {
 			mname.text(Pointer_stringify(Module._xm_get_module_name(moduleContext)));
 			mtracker.text(Pointer_stringify(Module._xm_get_tracker_name(moduleContext)));
-			ppb.prop('disabled', false).click();
+			if(playing === null) {
+				ppb.prop('disabled', false).click();
+			}
 		}, function() {
 			mname.text('Broken module. Check the console for more info.');
 			mtracker.text('');
@@ -139,12 +148,12 @@ $(function() {
 	});
 
 	ppb.click(function() {
-		if(timeout === null) {
-			play();
-			ppb.text('⏸ Pause');
-		} else {
+		if(playing === true) {
 			pause();
 			ppb.text('► Play');
+		} else {
+			play();
+			ppb.text('⏸ Pause');
 		}
 	});
 
@@ -154,5 +163,4 @@ $(function() {
 	pform.append(ppb);
 	player.append(mname, mtracker, pform);
 	$("p.modules").before(form, player);
-
 });
