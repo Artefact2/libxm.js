@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css?family=Inconsolata');
+
+body {
+	font-family: 'Inconsolata', monospace;
+	text-align: center;
+	margin: 0;
+	padding: 0;
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+}
+
+div#instruments, div#channels, div#volumes, div#frequencies {
+	position: absolute;
+	width: 100%;
+	left: 0;
+	height: 2em;
+}
+
+div#instruments, div#channels {
+	display: table;
+	table-layout: fixed;
+}
+
+div#instruments {
+	top: 0;
+}
+
+div#channels {
+	bottom: 0;
+}
+
+div#volumes {
+	bottom: 2em;
+	height: 5em;
+}
+
+div#frequencies {
+	height: auto;
+	top: 10em;
+	bottom: 8em;
+}
+
+div#volumes > div {
+	position: absolute;
+	bottom: 0;
+	background-color: black;
+}
+
+div#frequencies > div {
+	position: absolute;
+	height: 1em;
+	background-color: black;
+}
+
+div#instruments > div, div#channels > div {
+	display: table-cell;
+	vertical-align: middle;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+div#instruments > div.muted, div#channels > div.muted {
+	background-color: black !important;
+	color: white !important;
+	opacity: 1 !important;
+}
+
+div#instruments > div.muted:before, div#channels > div.muted:before {
+	content: "🔇";
+}
+
+footer {
+	position: absolute;
+	top: 3em;
+	left: 1em;
+	text-align: left;
+	z-index: 10;
+}
+
+footer > p {
+	margin: 0;
+}
+
+p#mtitle {
+	position: absolute;
+	margin: 0;
+	top: 8em;
+	right: 1em;
+	text-align: right;
+	z-index: 10;
+}
+
+footer a {
+	color: hsla(0, 0%, 30%, 1);
+}
+
+footer > p > small > ul {
+	margin: 0;
+	padding: 0;
+	list-style-type: none;
+}
+
+footer > p > small > ul > li {
+	padding: .1em 0;
+}
+
+footer > p > small > ul > li.playing {
+	font-weight: bold;
+}
+
+form#actions {
+	position: absolute;
+	top: 2.5em;
+	right: .5em;
+	z-index: 10;
+}
+
+form#actions > label {
+	font-size: 4em;
+	display: inline-block;
+	text-align: center;
+	width: 1.5em;
+	cursor: pointer;
+}
+
+form#actions > label.clip {
+	background-color: red;
+}
+
+form#actions > label:active {
+	color: red;
+}
+
+form#actions > input {
+	position: absolute;
+	left: -10000em;
+}
+
+h1 {
+	display: none;
+}
