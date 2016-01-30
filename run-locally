@@ -1,4 +1,5 @@
 #!/bin/sh
 
-php -S 127.0.0.1:24048 -t frontend &
-xdg-open "http://127.0.0.1:24048"
+echo "Open http://127.0.0.1:24048 in your browser. Press ^C to kill the webserver."
+
+exec php -S 127.0.0.1:24048 -t frontend

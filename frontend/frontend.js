@@ -8,7 +8,7 @@
 
 $(function() {
 
-	var _BUFLEN = 6000;
+	var _BUFLEN = 48000 / 30;
 	var _RATE = 48000;
 	var _BUFTIME = _BUFLEN / _RATE;
 
@@ -19,11 +19,14 @@ $(function() {
 	];
 	var sources = [ null, null ];
 	var playing = null;
+	var amp = 1.0;
+	var clip = false;
 
 	var xmActions = [];
 	var cFloatArray = Module._malloc(2 * _BUFLEN * 4);
 	var moduleContextPtr = Module._malloc(4);
 	var moduleContext = null;
+	var cSamplesPtr = Module._malloc(8);
 
 	var runXmContextAction = function(action) {
 		if(xmActions.length > 0) {
@@ -94,8 +97,21 @@ $(function() {
 				runXmContextAction(function() {
 					Module._xm_generate_samples(moduleContext, cFloatArray, _BUFLEN);
 					for(var j = 0; j < _BUFLEN; ++j) {
-						l[j] = Module.getValue(cFloatArray + 8 * j, 'float');
-						r[j] = Module.getValue(cFloatArray + 8 * j + 4, 'float');
+						l[j] = Module.getValue(cFloatArray + 8 * j, 'float') * amp;
+						r[j] = Module.getValue(cFloatArray + 8 * j + 4, 'float') * amp;
+						if(!clip && (l[j] < -1.0 || l[j] > 1.0 || r[j] < -1.0 || r[j] > 1.0)) {
+							clip = true;
+						}
+					}
+
+					Module._xm_get_position(moduleContext, null, null, null, cSamplesPtr);
+					var cs = Module.getValue(cSamplesPtr, 'i64');
+
+					for(var j = 1; j <= ninsts; ++j) {
+						itriggers[j] = cs - Module._xm_get_latest_trigger_of_instrument(moduleContext, j);
+					}
+					for(var j = 1; j <= nchans; ++j) {
+						ctriggers[j] = cs - Module._xm_get_latest_trigger_of_channel(moduleContext, j);
 					}
 				});
 
@@ -115,52 +131,133 @@ $(function() {
 
 	$("p#nojs").remove();
 	var form = $(document.createElement('form'));
+	form.prop('id', 'actions');
 	form.submit(function(e) { e.preventDefault(); });
 
-	var label = $(document.createElement('label'));
-	label.text('Upload your .xm file…');
+	var gminus = $(document.createElement('label'));
+	gminus.text('🕩');
+	gminus.prop('title', 'Lower gain by 1 dB');
 
+	var gplus = $(document.createElement('label'));
+	gplus.text('🔊');
+	gplus.prop('title', 'Increase gain by 1 dB (MAY CREATE CLIPPING)');
+
+	var ulabel = $(document.createElement('label'));
+	ulabel.text('📂');
+	ulabel.prop('title', 'Load .XM module…');
+	ulabel.prop('for', 'iupload');
+	
 	var input = $(document.createElement('input'));
 	input.prop('type', 'file');
+	input.prop('id', 'iupload');
 
-	var player = $(document.createElement('div'));
-	var mname = $(document.createElement('pre'));
-	var mtracker = $(document.createElement('pre'));
+	var ppb = $(document.createElement('label'));
+	ppb.text('►');
+	ppb.prop('title', 'Play/Pause');
 
-	var pform = $(document.createElement('form'));
-	pform.submit(function(e) { e.preventDefault(); });
+	ppb.prop('disabled', true);
+	form.append(gminus, gplus, ulabel, input, ppb);
+	$("body").append(form);
 
-	var ppb = $(document.createElement('button'));
-	ppb.text('► Play');
+	var dinstruments = $("div#instruments");
+	var dchannels = $("div#channels");
+	var ninsts = 0, nchans = 0;
+	var ielements = [];
+	var celements = [];
+	var itriggers = [], ctriggers = [];
+
+	form.on('selectstart', function() {
+		return false;
+	});
+
+	gminus.click(function() {
+		amp /= 1.25892541179;
+		clip = false;
+	});
+
+	gplus.click(function() {
+		amp *= 1.25892541179;
+	});
 
 	input.change(function() {		
 		loadModule(input.get(0).files[0], function() {
-			mname.text(Pointer_stringify(Module._xm_get_module_name(moduleContext)));
-			mtracker.text(Pointer_stringify(Module._xm_get_tracker_name(moduleContext)));
+			amp = 1.0;
+			clip = false;
+			dinstruments.empty();
+			dchannels.empty();
+			instinner = [];
+			chaninner = [];
+
+			ninsts = Module._xm_get_number_of_instruments(moduleContext);
+			nchans = Module._xm_get_number_of_channels(moduleContext);
+
+			for(var i = 1; i <= ninsts; ++i) {
+				dinstruments.append(
+					ielements[i] = $(document.createElement('div'))
+				);
+			}
+
+			for(var i = 1; i <= nchans; ++i) {
+				dchannels.append(
+					celements[i] = $(document.createElement('div'))
+				);
+			}
+			
 			if(playing === null) {
 				ppb.prop('disabled', false).click();
 			}
 		}, function() {
-			mname.text('Broken module. Check the console for more info.');
-			mtracker.text('');
+			alert('Broken module. Check the console for more info.');
 			ppb.prop('disabled', true);
 		});
 	});
 
 	ppb.click(function() {
+		if(ppb.prop('disabled')) {
+			ulabel.click();
+			return;
+		}
+		
 		if(playing === true) {
 			pause();
-			ppb.text('► Play');
+			ppb.text('►');
 		} else {
 			play();
-			ppb.text('⏸ Pause');
+			ppb.text('⏸');
 		}
 	});
 
-	ppb.prop('disabled', true);
+	dinstruments.on('click', 'div', function() {
+		var d = $(this);
+		d.toggleClass('muted');
 
-	form.append(label, input);
-	pform.append(ppb);
-	player.append(mname, mtracker, pform);
-	$("p.modules").before(form, player);
+		runXmContextAction(function() {
+			if(moduleContext === null) return;
+			Module._xm_mute_instrument(moduleContext, d.index()+1, d.hasClass('muted'));
+		});
+	});
+
+	dchannels.on('click', 'div', function() {
+		var d = $(this);
+		d.toggleClass('muted');
+
+		runXmContextAction(function() {
+			if(moduleContext === null) return;
+			Module._xm_mute_channel(moduleContext, d.index()+1, d.hasClass('muted'));
+		});
+	});
+
+	var dloop = function() {
+		if(clip != gplus.hasClass('clip')) gplus.toggleClass('clip');
+		
+		for(var i = 1; i <= ninsts; ++i) {
+			ielements[i].css('opacity', 1.0 - Math.min(1.0, itriggers[i] / 24000));
+		}
+		for(var i = 1; i <= nchans; ++i) {
+			celements[i].css('opacity', 1.0 - Math.min(1.0, ctriggers[i] / 24000));
+		}
+
+		requestAnimationFrame(dloop);
+	};
+	requestAnimationFrame(dloop);
 });
