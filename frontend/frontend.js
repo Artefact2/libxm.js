@@ -165,6 +165,7 @@ $(function() {
 	var ielements = [];
 	var celements = [];
 	var itriggers = [], ctriggers = [];
+	var mtitle = $("p#mtitle");
 
 	form.on('selectstart', function() {
 		return false;
@@ -179,8 +180,8 @@ $(function() {
 		amp *= 1.25892541179;
 	});
 
-	input.change(function() {		
-		loadModule(input.get(0).files[0], function() {
+	var realLoadModule = function(file) {
+		loadModule(file, function() {
 			amp = 1.0;
 			clip = false;
 			dinstruments.empty();
@@ -202,6 +203,8 @@ $(function() {
 					celements[i] = $(document.createElement('div'))
 				);
 			}
+
+			mtitle.text("Currently playing: " + Pointer_stringify(Module._xm_get_module_name(moduleContext)));
 			
 			if(playing === null) {
 				ppb.prop('disabled', false).click();
@@ -210,6 +213,10 @@ $(function() {
 			alert('Broken module. Check the console for more info.');
 			ppb.prop('disabled', true);
 		});
+	};
+
+	input.change(function() {
+		realLoadModule(input.get(0).files[0]);
 	});
 
 	ppb.click(function() {
@@ -246,6 +253,18 @@ $(function() {
 			Module._xm_mute_channel(moduleContext, d.index()+1, d.hasClass('muted'));
 		});
 	});
+
+	var xhr = new XMLHttpRequest();
+	xhr.open('GET', './drozerix_-_poppy_flower_girls.xm');
+	xhr.responseType = 'blob';
+	xhr.onload = function() {
+		if(this.status !== 200) {
+			return;
+		}
+
+		realLoadModule(this.response);
+	};
+	xhr.send();
 
 	var dloop = function() {
 		if(clip != gplus.hasClass('clip')) gplus.toggleClass('clip');

@@ -11,13 +11,6 @@ body {
 	height: 100%;
 }
 
-div#content {
-	display: inline-block;
-	position: relative;
-	top: 50%;
-	transform: translateY(-50%);
-}
-
 div#instruments, div#channels {
 	position: absolute;
 	width: 100%;
@@ -53,8 +46,8 @@ div#instruments > div.muted:before, div#channels > div.muted:before {
 
 footer {
 	position: absolute;
-	bottom: 2.5em;
-	right: 0.5em;
+	bottom: 3em;
+	right: 1em;
 	text-align: right;
 }
 
@@ -62,28 +55,16 @@ footer > p {
 	margin: 0;
 }
 
+p#mtitle {
+	position: absolute;
+	margin: 0;
+	top: 10em;
+	right: 1em;
+	text-align: right;
+}
+
 footer a {
 	color: hsla(0, 0%, 30%, 1);
-}
-
-h1, h2, h3 {
-	text-transform: uppercase;
-	padding: 0;
-	margin: 0;
-	line-height: 95%;
-}
-
-h1, h3 {
-	font-family: 'Open Sans', sans-serif;
-	font-weight: 600;
-	font-size: 7em;
-	letter-spacing: -.05em;
-}
-
-h2 {
-	font-family: 'PT Mono', monospace;
-	font-weight: 400;
-	font-size: 20em;
 }
 
 form#actions {
@@ -111,4 +92,25 @@ form#actions > label:active {
 form#actions > input {
 	position: absolute;
 	left: -10000em;
+}
+
+p {
+	font-family: monospace;
+}
+
+h1 {
+	position: absolute;
+	padding: 0;
+	margin: 0;
+	font-size: 1em;
+	top: 10em;
+	left: 10em;
+	bottom: 10em;
+	right: 10em;
+	text-indent: -10000em;
+
+	background-image: url(./libxmjs.svg);
+	background-size: contain;
+	background-repeat: no-repeat;
+	background-position: center center;
 }
