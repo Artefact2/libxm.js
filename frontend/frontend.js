@@ -45,6 +45,8 @@ $(function() {
 		var reader = new FileReader();
 		reader.onload = function() {
 			runXmContextAction(function() {
+				hasdata = false;
+				
 				if(moduleContext !== null) {
 					Module._xm_free_context(moduleContext);
 					moduleContext = null;
@@ -111,8 +113,13 @@ $(function() {
 						itriggers[j] = cs - Module._xm_get_latest_trigger_of_instrument(moduleContext, j);
 					}
 					for(var j = 1; j <= nchans; ++j) {
-						ctriggers[j] = cs - Module._xm_get_latest_trigger_of_channel(moduleContext, j);
+						cdata[j] = Module._xm_is_channel_active(moduleContext, j) ? [
+							Module._xm_get_volume_of_channel(moduleContext, j),
+							Module._xm_get_frequency_of_channel(moduleContext, j),
+							Module._xm_get_instrument_of_channel(moduleContext, j),
+						] : [ 0.0, 440.0, 1 ];
 					}
+					hasdata = true;
 				});
 
 				s.start(startTime);
@@ -146,6 +153,7 @@ $(function() {
 	ulabel.text('📂');
 	ulabel.prop('title', 'Load .XM module…');
 	ulabel.prop('for', 'iupload');
+	ulabel.attr('for', 'iupload');
 	
 	var input = $(document.createElement('input'));
 	input.prop('type', 'file');
@@ -164,7 +172,8 @@ $(function() {
 	var ninsts = 0, nchans = 0;
 	var ielements = [];
 	var celements = [];
-	var itriggers = [], ctriggers = [];
+	var itriggers = [], cdata = [];
+	var hasdata = false;
 	var mtitle = $("p#mtitle");
 
 	form.on('selectstart', function() {
@@ -194,13 +203,17 @@ $(function() {
 
 			for(var i = 1; i <= ninsts; ++i) {
 				dinstruments.append(
-					ielements[i] = $(document.createElement('div'))
+					ielements[i] = $(document.createElement('div')).css({
+						'background-color': 'hsl(' + (360 * (i-1) / ninsts) + ', 100%, 40%)'
+					})
 				);
 			}
 
-			for(var i = 1; i <= nchans; ++i) {
+			for(var j = 1; j <= nchans; ++j) {
 				dchannels.append(
-					celements[i] = $(document.createElement('div'))
+					celements[j] = $(document.createElement('div')).css({
+						top: (1-j) * .5 + 'em',
+					})
 				);
 			}
 
@@ -244,16 +257,6 @@ $(function() {
 		});
 	});
 
-	dchannels.on('click', 'div', function() {
-		var d = $(this);
-		d.toggleClass('muted');
-
-		runXmContextAction(function() {
-			if(moduleContext === null) return;
-			Module._xm_mute_channel(moduleContext, d.index()+1, d.hasClass('muted'));
-		});
-	});
-
 	var xhr = new XMLHttpRequest();
 	xhr.open('GET', './drozerix_-_poppy_flower_girls.xm');
 	xhr.responseType = 'blob';
@@ -266,14 +269,22 @@ $(function() {
 	};
 	xhr.send();
 
+	var freqoffset = Math.log(440 * Math.pow(2, 5));
+	var octamp = 10 / Math.log(2);
 	var dloop = function() {
 		if(clip != gplus.hasClass('clip')) gplus.toggleClass('clip');
-		
-		for(var i = 1; i <= ninsts; ++i) {
-			ielements[i].css('opacity', 1.0 - Math.min(1.0, itriggers[i] / 24000));
-		}
-		for(var i = 1; i <= nchans; ++i) {
-			celements[i].css('opacity', 1.0 - Math.min(1.0, ctriggers[i] / 24000));
+
+		if(hasdata) {
+			for(var i = 1; i <= ninsts; ++i) {
+				ielements[i].css('opacity', 1.0 - Math.min(1.0, itriggers[i] / 24000));
+			}
+			for(var j = 1; j <= nchans; ++j) {
+				celements[j].css({
+					opacity: cdata[j][0],
+					left: (50 + octamp * (Math.log(cdata[j][1]) - freqoffset)) + '%',
+					'background-color': 'hsl(' + (360 * (cdata[j][2]-1) / ninsts) + ', 100%, 40%)'
+				});
+			}
 		}
 
 		requestAnimationFrame(dloop);
