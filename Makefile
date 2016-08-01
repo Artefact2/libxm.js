@@ -1,4 +1,7 @@
-default: frontend/libxm.js frontend/libxm.js.mem
+default: frontend/libxm.js frontend/libxm.js.mem frontend/xm/index.txt
+
+frontend/xm/index.txt: $(shell find frontend/xm -type f -iname "*.xm")
+	find frontend/xm -type f -iname "*.xm" -printf "%f\n" | sort > $@
 
 frontend/%: build/src/%
 	cp -a $< $@

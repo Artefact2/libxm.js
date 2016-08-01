@@ -257,17 +257,49 @@ $(function() {
 		});
 	});
 
-	var xhr = new XMLHttpRequest();
-	xhr.open('GET', './drozerix_-_poppy_flower_girls.xm');
-	xhr.responseType = 'blob';
-	xhr.onload = function() {
-		if(this.status !== 200) {
-			return;
-		}
 
-		realLoadModule(this.response);
+	var xhri = new XMLHttpRequest();
+	xhri.open('GET', './xm/index.txt');
+	xhri.responseType = 'text';
+	xhri.onload = function() {
+		if(this.status !== 200) return;
+
+		var s = $("footer > p > small");
+		s.append(document.createElement('br'));
+		s.append('Or load one of these:');
+		var ul = $(document.createElement('ul'));
+		s.append(ul);
+
+		var xms = this.responseText.split("\n");
+		var li, l = xms.length - 1;
+		for(var i = 0; i < l; ++i) {
+			li = $(document.createElement('li'));
+			li.append(
+				$(document.createElement('a'))
+					.text(xms[i])
+					.prop('href', './xm/' + xms[i])
+					.on('click', function(e) {
+						e.preventDefault();
+
+						var a = $(this);
+						var xhr = new XMLHttpRequest();
+						xhr.open('GET', a.prop('href'));
+						xhr.responseType = 'blob';
+						xhr.onload = function() {
+							if(this.status !== 200) return;
+
+							a.parent().parent().children('li.playing').removeClass('playing');
+							realLoadModule(this.response);
+							a.parent().addClass('playing');
+						};
+						xhr.send();
+					})
+			);
+
+			ul.append(li);
+		}
 	};
-	xhr.send();
+	xhri.send();
 
 	var freqoffset = Math.log(440 * Math.pow(2, 5));
 	var octamp = 10 / Math.log(2);

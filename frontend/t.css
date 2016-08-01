@@ -76,6 +76,20 @@ footer a {
 	color: hsla(0, 0%, 30%, 1);
 }
 
+footer > p > small > ul {
+	margin: 0;
+	padding: 0;
+	list-style-type: none;
+}
+
+footer > p > small > ul > li {
+	padding: .1em 0;
+}
+
+footer > p > small > ul > li.playing {
+	font-weight: bold;
+}
+
 form#actions {
 	position: absolute;
 	top: 2.5em;
