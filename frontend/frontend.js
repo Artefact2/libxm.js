@@ -298,6 +298,12 @@ $(function() {
 
 			ul.append(li);
 		}
+
+		setTimeout(function() {
+			var mods = ul.find('a');
+			var n = window.location.hash.length >= 2 ? parseInt(window.location.hash.substring(1)) : Math.floor(Math.random() * mods.length);
+			mods.eq(n).click();
+		}, 250);
 	};
 	xhri.send();
 
