@@ -37,10 +37,14 @@ $(function() {
 
 	var dinstruments = $("div#instruments");
 	var dchannels = $("div#channels");
+	var dvolumes = $("div#volumes");
+	var dfrequencies = $("div#frequencies");
 	var mtitle = $("p#mtitle");
 	var ninsts = 0, nchans = 0;
 	var ielements = [];
 	var celements = [];
+	var velements = [];
+	var felements = [];
 	var xmdata = [];
 
 	var runXmContextAction = function(action) {
@@ -235,6 +239,8 @@ $(function() {
 			needsResync = true;
 			dinstruments.empty();
 			dchannels.empty();
+			dvolumes.empty();
+			dfrequencies.empty();
 			xmdata.splice(0, xmdata.length);
 
 			ninsts = Module._xm_get_number_of_instruments(moduleContext);
@@ -251,9 +257,26 @@ $(function() {
 
 			for(var j = 0; j < nchans; ++j) {
 				dchannels.append(
-					celements[j] = $(document.createElement('div')).css({
-						top: -j * .5 + 'em',
-						opacity: '0',
+					celements[j] = $(document.createElement('div'))
+				);
+
+				dvolumes.append(
+					velements[2 * j] = $(document.createElement('div')).css({
+						width: (50 / nchans) + '%',
+						left: (100 * j / nchans) + '%',
+						height: '0em',
+					}),
+					velements[2 * j + 1] = $(document.createElement('div')).css({
+						width: (50 / nchans) + '%',
+						left: (100 * j / nchans + 50 / nchans) + '%',
+						height: '0em',
+					})
+				);
+
+				dfrequencies.append(
+					felements[j] = $(document.createElement('div')).css({
+						width: (100 / nchans) + '%',
+						left: (100 * j / nchans) + '%',
 					})
 				);
 			}
@@ -283,6 +306,16 @@ $(function() {
 		runXmContextAction(function() {
 			if(moduleContext === null) return;
 			Module._xm_mute_instrument(moduleContext, d.index()+1, d.hasClass('muted'));
+		});
+	});
+
+	dchannels.on('click', 'div', function() {
+		var d = $(this);
+		d.toggleClass('muted');
+
+		runXmContextAction(function() {
+			if(moduleContext === null) return;
+			Module._xm_mute_channel(moduleContext, d.index()+1, d.hasClass('muted'));
 		});
 	});
 
@@ -332,7 +365,10 @@ $(function() {
 		}, 250);
 	};
 	xhri.send();
-	
+
+	var notes = [
+		'A-', 'A#', 'B-', 'C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#',
+	];
 	var render = function() {
 		requestAnimationFrame(render);
 		if(xmdata.length === 0) return;
@@ -343,10 +379,40 @@ $(function() {
 		}
 
 		var xmd = xmdata[0];
+
+		for(var i = 0; i < ninsts; ++i) {
+			var dist = (xmd.sampleCount - xmd.instruments[i].latestTrigger) / RATE;
+			ielements[i].css({
+				opacity: Math.min(1.0, Math.max(0.0, 1.0 - 2.0 * dist)),
+			});
+		}
+		
 		for(var j = 0; j < nchans; ++j) {
+			var dist = (xmd.sampleCount - xmd.channels[j].latestTrigger) / RATE;
+			
 			celements[j].css({
-				opacity: xmd.channels[j].volume,
-				left: (10 * Math.log(xmd.channels[j].frequency) - 50) + 'em',
+				'background-color': 'hsl(' + (360 * (xmd.channels[j].instrument - 1) / ninsts) + ', 100%, ' + (75.0 + 50.0 * dist) + '%)',
+			}).text(
+				xmd.channels[j].active && xmd.channels[j].volume > .01 ?
+					notes[Math.round(12.0 * Math.log(xmd.channels[j].frequency / 440.0) / Math.log(2)) % 12]
+					+ Math.floor(Math.log(xmd.channels[j].frequency) / Math.log(2) - 10)
+					:
+					''
+			);
+
+			velements[2 * j].css({
+				height: xmd.channels[j].active ? (5.0 * xmd.channels[j].volume * (1.0 - xmd.channels[j].panning)) + 'em' : '0em',
+				'background-color': 'hsl(' + (360 * (xmd.channels[j].instrument - 1) / ninsts) + ', 100%, 40%)',
+			});
+			velements[2 * j + 1].css({
+				height: xmd.channels[j].active ?  (5.0 * xmd.channels[j].volume * xmd.channels[j].panning) + 'em' : '0em',
+				'background-color': 'hsl(' + (360 * (xmd.channels[j].instrument - 1) / ninsts) + ', 100%, 40%)',
+			});
+
+			felements[j].css({
+				opacity: xmd.channels[j].active ? xmd.channels[j].volume : '0',
+				bottom: (15.0 * (Math.log(xmd.channels[j].frequency) / Math.log(2.0) - 13.0)) + '%',
+				'background-color': 'hsl(' + (360 * (xmd.channels[j].instrument - 1) / ninsts) + ', 100%, 40%)',
 			});
 		}
 
