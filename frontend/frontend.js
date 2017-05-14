@@ -8,25 +8,40 @@
 
 $(function() {
 
-	var _BUFLEN = 48000 / 30;
-	var _RATE = 48000;
-	var _BUFTIME = _BUFLEN / _RATE;
+	var AUDIO_BUFFER_LENGTH = 4096;
+	var XM_BUFFER_LENGTH = 256;
+	var RATE = 48000;
+	var MAX_XMDATA = 256;
 
-	var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+	var audioContext = new AudioContext();
 	var buffers = [
-		audioContext.createBuffer(2, _BUFLEN, _RATE),
-		audioContext.createBuffer(2, _BUFLEN, _RATE),
+		audioContext.createBuffer(2, AUDIO_BUFFER_LENGTH, RATE),
+		audioContext.createBuffer(2, AUDIO_BUFFER_LENGTH, RATE),
 	];
-	var sources = [ null, null ];
-	var playing = null;
+
+	var LATENCY_COMP = RATE * (audioContext.outputLatency | audioContext.baseLatency | 0.25)
+		- RATE / 60;
+	
+	var playing = true;
+	var needsResync = true;
+	var t0 = 0; /* Sync point in audio ctx */
+	var s0 = 0; /* Sync point in xm ctx */
 	var amp = 1.0;
 	var clip = false;
 
 	var xmActions = [];
-	var cFloatArray = Module._malloc(2 * _BUFLEN * 4);
+	var cFloatArray = Module._malloc(2 * XM_BUFFER_LENGTH * 4);
 	var moduleContextPtr = Module._malloc(4);
 	var moduleContext = null;
 	var cSamplesPtr = Module._malloc(8);
+
+	var dinstruments = $("div#instruments");
+	var dchannels = $("div#channels");
+	var mtitle = $("p#mtitle");
+	var ninsts = 0, nchans = 0;
+	var ielements = [];
+	var celements = [];
+	var xmdata = [];
 
 	var runXmContextAction = function(action) {
 		if(xmActions.length > 0) {
@@ -56,13 +71,12 @@ $(function() {
 				var moduleStringBuffer = Module._malloc(view.length);
 				Module.writeArrayToMemory(view, moduleStringBuffer);
 				var ret = Module._xm_create_context(
-					moduleContextPtr, moduleStringBuffer, _RATE
+					moduleContextPtr, moduleStringBuffer, RATE
 				);
 				Module._free(moduleStringBuffer);
 
 				if(ret !== 0) {
 					moduleContext = null;
-					playing = false;
 				} else {
 					moduleContext = getValue(moduleContextPtr, '*');
 				}
@@ -78,63 +92,98 @@ $(function() {
 		reader.readAsArrayBuffer(file);
 	};
 
-	var play = function() {
-		var makeSourceGenerator = function(index, startTime, interval) {
-			if(playing === false) {
-				return function() {
-					sources[index] = null;
-				};
+	var fillBuffer = function(buffer) {
+		var l = buffer.getChannelData(0);
+		var r = buffer.getChannelData(1);
+		
+		for(var off = 0; off < AUDIO_BUFFER_LENGTH; off += XM_BUFFER_LENGTH) {
+			Module._xm_generate_samples(moduleContext, cFloatArray, XM_BUFFER_LENGTH);
+			for(var j = 0; j < XM_BUFFER_LENGTH; ++j) {
+				l[off+j] = Module.getValue(cFloatArray + 8 * j, 'float') * amp;
+				r[off+j] = Module.getValue(cFloatArray + 8 * j + 4, 'float') * amp;
+				if(!clip && (l[j] < -1.0 || l[j] > 1.0 || r[j] < -1.0 || r[j] > 1.0)) {
+					clip = true;
+				}
 			}
+
+			var xmd = {};
 			
+			Module._xm_get_position(moduleContext, null, null, null, cSamplesPtr);
+			xmd.sampleCount = Module.getValue(cSamplesPtr, 'i64');
+
+			xmd.instruments = [];
+			for(var j = 1; j <= ninsts; ++j) {
+				xmd.instruments.push({
+					latestTrigger: Module._xm_get_latest_trigger_of_instrument(moduleContext, j),
+				});
+			}
+
+			xmd.channels = [];
+			for(var j = 1; j <= nchans; ++j) {
+				xmd.channels.push({
+					active: Module._xm_is_channel_active(moduleContext, j),
+					latestTrigger: Module._xm_get_latest_trigger_of_channel(moduleContext, j),
+					volume: Module._xm_get_volume_of_channel(moduleContext, j),
+					panning: Module._xm_get_panning_of_channel(moduleContext, j),
+					frequency: Module._xm_get_frequency_of_channel(moduleContext, j),
+					instrument: Module._xm_get_instrument_of_channel(moduleContext, j),
+				});
+			}
+
+			xmdata.push(xmd);
+			if(xmd.length >= MAX_XMDATA) xmdata.shift();
+		}
+	};
+
+	var setupSources = function() {
+		var makeSourceGenerator = function(index, start) {
 			return function() {
 				var s = audioContext.createBufferSource();
-				s.onended = makeSourceGenerator(index, startTime + interval, interval);
+				s.onended = makeSourceGenerator(index, start + 2 * AUDIO_BUFFER_LENGTH);
 				s.buffer = buffers[index];
 				s.connect(audioContext.destination);
-				sources[index] = s;
 
-				var l = s.buffer.getChannelData(0);
-				var r = s.buffer.getChannelData(1);
-
-				runXmContextAction(function() {
-					Module._xm_generate_samples(moduleContext, cFloatArray, _BUFLEN);
-					for(var j = 0; j < _BUFLEN; ++j) {
-						l[j] = Module.getValue(cFloatArray + 8 * j, 'float') * amp;
-						r[j] = Module.getValue(cFloatArray + 8 * j + 4, 'float') * amp;
-						if(!clip && (l[j] < -1.0 || l[j] > 1.0 || r[j] < -1.0 || r[j] > 1.0)) {
-							clip = true;
+				if(moduleContext !== null) {
+					runXmContextAction(function() {
+						if(needsResync) {
+							t0 = start;
+							Module._xm_get_position(moduleContext, null, null, null, cSamplesPtr);
+							s0 = Module.getValue(cSamplesPtr, 'i64');
+							needsResync = false;
 						}
+						fillBuffer(s.buffer);
+					});
+				} else {
+					var l = s.buffer.getChannelData(0);
+					var r = s.buffer.getChannelData(1);
+					for(var i = 0; i < AUDIO_BUFFER_LENGTH; ++i) {
+						l[i] = r[i] = 0.0;
 					}
+				}
 
-					Module._xm_get_position(moduleContext, null, null, null, cSamplesPtr);
-					var cs = Module.getValue(cSamplesPtr, 'i64');
-
-					for(var j = 1; j <= ninsts; ++j) {
-						itriggers[j] = cs - Module._xm_get_latest_trigger_of_instrument(moduleContext, j);
-					}
-					for(var j = 1; j <= nchans; ++j) {
-						cdata[j] = Module._xm_is_channel_active(moduleContext, j) ? [
-							Module._xm_get_volume_of_channel(moduleContext, j),
-							Module._xm_get_frequency_of_channel(moduleContext, j),
-							Module._xm_get_instrument_of_channel(moduleContext, j),
-						] : [ 0.0, 440.0, 1 ];
-					}
-					hasdata = true;
-				});
-
-				s.start(startTime);
+				s.start(start / RATE);
 			};
 		};
 		
-		playing = true;
-		var t = audioContext.currentTime + _BUFTIME;
-		(makeSourceGenerator(0, t, 2 * _BUFTIME))();
-		(makeSourceGenerator(1, t + _BUFTIME, 2 * _BUFTIME))();
+		var t = RATE * audioContext.currentTime + AUDIO_BUFFER_LENGTH;
+		runXmContextAction(function() {			
+			Module._xm_get_position(moduleContext, null, null, null, cSamplesPtr);
+			s0 = Module.getValue(cSamplesPtr, 'i64');
+		});
+		
+		(makeSourceGenerator(0, t))();
+		(makeSourceGenerator(1, t + AUDIO_BUFFER_LENGTH))();
 	};
 
 	var pause = function() {
+		audioContext.suspend();
 		playing = false;
 	};
+
+	var resume = function() {
+		audioContext.resume();
+		playing = true;
+	}
 
 	$("p#nojs").remove();
 	var form = $(document.createElement('form'));
@@ -160,21 +209,11 @@ $(function() {
 	input.prop('id', 'iupload');
 
 	var ppb = $(document.createElement('label'));
-	ppb.text('►');
+	ppb.text('⏯');
 	ppb.prop('title', 'Play/Pause');
 
-	ppb.prop('disabled', true);
 	form.append(gminus, gplus, ulabel, input, ppb);
 	$("body").append(form);
-
-	var dinstruments = $("div#instruments");
-	var dchannels = $("div#channels");
-	var ninsts = 0, nchans = 0;
-	var ielements = [];
-	var celements = [];
-	var itriggers = [], cdata = [];
-	var hasdata = false;
-	var mtitle = $("p#mtitle");
 
 	form.on('selectstart', function() {
 		return false;
@@ -193,38 +232,35 @@ $(function() {
 		loadModule(file, function() {
 			amp = 1.0;
 			clip = false;
+			needsResync = true;
 			dinstruments.empty();
 			dchannels.empty();
-			instinner = [];
-			chaninner = [];
+			xmdata.splice(0, xmdata.length);
 
 			ninsts = Module._xm_get_number_of_instruments(moduleContext);
 			nchans = Module._xm_get_number_of_channels(moduleContext);
 
-			for(var i = 1; i <= ninsts; ++i) {
+			for(var i = 0; i < ninsts; ++i) {
 				dinstruments.append(
 					ielements[i] = $(document.createElement('div')).css({
-						'background-color': 'hsl(' + (360 * (i-1) / ninsts) + ', 100%, 40%)'
+						'background-color': 'hsl(' + (360 * i / ninsts) + ', 100%, 40%)',
+						opacity: '0',
 					})
 				);
 			}
 
-			for(var j = 1; j <= nchans; ++j) {
+			for(var j = 0; j < nchans; ++j) {
 				dchannels.append(
 					celements[j] = $(document.createElement('div')).css({
-						top: (1-j) * .5 + 'em',
+						top: -j * .5 + 'em',
+						opacity: '0',
 					})
 				);
 			}
 
 			mtitle.text("Currently playing: " + Pointer_stringify(Module._xm_get_module_name(moduleContext)));
-			
-			if(playing === null) {
-				ppb.prop('disabled', false).click();
-			}
 		}, function() {
 			alert('Broken module. Check the console for more info.');
-			ppb.prop('disabled', true);
 		});
 	};
 
@@ -232,18 +268,11 @@ $(function() {
 		realLoadModule(input.get(0).files[0]);
 	});
 
-	ppb.click(function() {
-		if(ppb.prop('disabled')) {
-			ulabel.click();
-			return;
-		}
-		
+	ppb.click(function() {		
 		if(playing === true) {
 			pause();
-			ppb.text('►');
 		} else {
-			play();
-			ppb.text('⏸');
+			resume();
 		}
 	});
 
@@ -287,10 +316,7 @@ $(function() {
 						xhr.responseType = 'blob';
 						xhr.onload = function() {
 							if(this.status !== 200) return;
-
-							a.parent().parent().children('li.playing').removeClass('playing');
 							realLoadModule(this.response);
-							a.parent().addClass('playing');
 						};
 						xhr.send();
 					})
@@ -306,26 +332,27 @@ $(function() {
 		}, 250);
 	};
 	xhri.send();
+	
+	var render = function() {
+		requestAnimationFrame(render);
+		if(xmdata.length === 0) return;
 
-	var freqoffset = Math.log(440 * Math.pow(2, 5));
-	var octamp = 10 / Math.log(2);
-	var dloop = function() {
-		if(clip != gplus.hasClass('clip')) gplus.toggleClass('clip');
-
-		if(hasdata) {
-			for(var i = 1; i <= ninsts; ++i) {
-				ielements[i].css('opacity', 1.0 - Math.min(1.0, itriggers[i] / 24000));
-			}
-			for(var j = 1; j <= nchans; ++j) {
-				celements[j].css({
-					opacity: cdata[j][0],
-					left: (50 + octamp * (Math.log(cdata[j][1]) - freqoffset)) + '%',
-					'background-color': 'hsl(' + (360 * (cdata[j][2]-1) / ninsts) + ', 100%, 40%)'
-				});
-			}
+		var target = RATE * audioContext.currentTime - t0 - LATENCY_COMP;
+		while(xmdata.length >= 2 && xmdata[0].sampleCount - s0 < target && xmdata[1].sampleCount - s0 < target) {
+			xmdata.shift();
 		}
 
-		requestAnimationFrame(dloop);
+		var xmd = xmdata[0];
+		for(var j = 0; j < nchans; ++j) {
+			celements[j].css({
+				opacity: xmd.channels[j].volume,
+				left: (10 * Math.log(xmd.channels[j].frequency) - 50) + 'em',
+			});
+		}
+
+		if(clip != gplus.hasClass('clip')) gplus.toggleClass('clip');
 	};
-	requestAnimationFrame(dloop);
+	
+	setupSources();
+	requestAnimationFrame(render);
 });
