@@ -195,7 +195,7 @@ $(function() {
 	form.submit(function(e) { e.preventDefault(); });
 
 	var gminus = $(document.createElement('label'));
-	gminus.text('🕩');
+	gminus.text('🔉');
 	gminus.prop('title', 'Lower gain by 1 dB');
 
 	var gplus = $(document.createElement('label'));
