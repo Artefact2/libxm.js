@@ -6,7 +6,7 @@
  * License, Version 2, as published by Sam Hocevar. See
  * http://sam.zoy.org/wtfpl/COPYING for more details. */
 
-$(function() {
+var Module = { onRuntimeInitialized: function() { $(function() {
 
 	var AUDIO_BUFFER_LENGTH = 4096;
 	var XM_BUFFER_LENGTH = 256;
@@ -21,7 +21,7 @@ $(function() {
 
 	var LATENCY_COMP = RATE * (audioContext.outputLatency | audioContext.baseLatency | 0.25)
 		- RATE / 60;
-	
+
 	var playing = true;
 	var needsResync = true;
 	var t0 = 0; /* Sync point in audio ctx */
@@ -59,13 +59,13 @@ $(function() {
 			(xmActions.shift())();
 		}
 	};
-	
+
 	var loadModule = function(file, success, failure) {
 		var reader = new FileReader();
 		reader.onload = function() {
 			runXmContextAction(function() {
 				hasdata = false;
-				
+
 				if(moduleContext !== null) {
 					Module._xm_free_context(moduleContext);
 					moduleContext = null;
@@ -99,7 +99,7 @@ $(function() {
 	var fillBuffer = function(buffer) {
 		var l = buffer.getChannelData(0);
 		var r = buffer.getChannelData(1);
-		
+
 		for(var off = 0; off < AUDIO_BUFFER_LENGTH; off += XM_BUFFER_LENGTH) {
 			Module._xm_generate_samples(moduleContext, cFloatArray, XM_BUFFER_LENGTH);
 			for(var j = 0; j < XM_BUFFER_LENGTH; ++j) {
@@ -111,7 +111,7 @@ $(function() {
 			}
 
 			var xmd = {};
-			
+
 			Module._xm_get_position(moduleContext, null, null, null, cSamplesPtr);
 			xmd.sampleCount = Module.getValue(cSamplesPtr, 'i64');
 
@@ -168,13 +168,13 @@ $(function() {
 				s.start(start / RATE);
 			};
 		};
-		
+
 		var t = RATE * audioContext.currentTime + AUDIO_BUFFER_LENGTH;
-		runXmContextAction(function() {			
+		runXmContextAction(function() {
 			Module._xm_get_position(moduleContext, null, null, null, cSamplesPtr);
 			s0 = Module.getValue(cSamplesPtr, 'i64');
 		});
-		
+
 		(makeSourceGenerator(0, t))();
 		(makeSourceGenerator(1, t + AUDIO_BUFFER_LENGTH))();
 	};
@@ -207,7 +207,7 @@ $(function() {
 	ulabel.prop('title', 'Load .XM module…');
 	ulabel.prop('for', 'iupload');
 	ulabel.attr('for', 'iupload');
-	
+
 	var input = $(document.createElement('input'));
 	input.prop('type', 'file');
 	input.prop('id', 'iupload');
@@ -281,7 +281,7 @@ $(function() {
 				);
 			}
 
-			mtitle.text("Currently playing: " + Pointer_stringify(Module._xm_get_module_name(moduleContext)));
+			mtitle.text("Currently playing: " + Module.AsciiToString(Module._xm_get_module_name(moduleContext)));
 		}, function() {
 			alert('Broken module. Check the console for more info.');
 		});
@@ -291,7 +291,7 @@ $(function() {
 		realLoadModule(input.get(0).files[0]);
 	});
 
-	ppb.click(function() {		
+	ppb.click(function() {
 		if(playing === true) {
 			pause();
 		} else {
@@ -386,10 +386,10 @@ $(function() {
 				opacity: Math.min(1.0, Math.max(0.0, 1.0 - 2.0 * dist)),
 			});
 		}
-		
+
 		for(var j = 0; j < nchans; ++j) {
 			var dist = (xmd.sampleCount - xmd.channels[j].latestTrigger) / RATE;
-			
+
 			celements[j].css({
 				'background-color': 'hsl(' + (360 * (xmd.channels[j].instrument - 1) / ninsts) + ', 100%, ' + (75.0 + 50.0 * dist) + '%)',
 			}).text(
@@ -418,7 +418,7 @@ $(function() {
 
 		if(clip != gplus.hasClass('clip')) gplus.toggleClass('clip');
 	};
-	
+
 	setupSources();
 	requestAnimationFrame(render);
-});
+}); } };
