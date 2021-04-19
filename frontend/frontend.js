@@ -22,7 +22,7 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 	var LATENCY_COMP = RATE * (audioContext.outputLatency | audioContext.baseLatency | 0.25)
 		- RATE / 60;
 
-	var playing = true;
+	var playing = false;
 	var needsResync = true;
 	var t0 = 0; /* Sync point in audio ctx */
 	var s0 = 0; /* Sync point in xm ctx */
@@ -215,6 +215,7 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 	var ppb = $(document.createElement('label'));
 	ppb.text('⏯');
 	ppb.prop('title', 'Play/Pause');
+	ppb.addClass('blinkred');
 
 	form.append(gminus, gplus, ulabel, input, ppb);
 	$("body").append(form);
@@ -292,6 +293,7 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 	});
 
 	ppb.click(function() {
+		$(this).removeClass('blinkred');
 		if(playing === true) {
 			pause();
 		} else {

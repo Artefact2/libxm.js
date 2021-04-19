@@ -143,3 +143,15 @@ form#actions > input {
 h1 {
 	display: none;
 }
+
+label.blinkred {
+	animation-name: bred;
+	animation-duration: 1s;
+	animation-iteration-count: infinite;
+	animation-direction: alternate;
+}
+
+@keyframes bred {
+	from { color: black; transform: scale(1, 1); }
+	to { color: red; transform: scale(1.5, 1.5); }
+}
