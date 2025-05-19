@@ -88,11 +88,11 @@ footer > p {
 p#mtitle {
 	position: absolute;
 	margin: 0;
-	top: 8em;
+	top: 5em;
 	right: 1em;
 	text-align: right;
 	z-index: 10;
-	white-space: pre-line;
+	white-space: pre;
 }
 
 footer a {
@@ -120,20 +120,26 @@ form#actions {
 	z-index: 10;
 }
 
-form#actions > label {
-	font-size: 4em;
-	display: inline-block;
-	text-align: center;
-	width: 1.5em;
-	cursor: pointer;
+form#actions > button, form#actions > label {
+	margin-left: 1em;
+	border-radius: 0;
+	font-weight: bold;
+	border: 2px outset #888;
+	background-color: #CCC;
+	padding: 0.2em 0.4em;
+	font-weight: bold;
+	font-family: sans-serif;
+	font-size: 1rem;
 }
 
-form#actions > label.clip {
+form#actions > button.clip {
 	background-color: red;
 }
 
-form#actions > label:active {
+form#actions > button:active {
 	color: red;
+	border-style: inset;
+	background-color: #AAA;
 }
 
 form#actions > input {
@@ -145,14 +151,14 @@ h1 {
 	display: none;
 }
 
-label.blinkred {
+button.blinkred {
 	animation-name: bred;
 	animation-duration: 1s;
 	animation-iteration-count: infinite;
-	animation-direction: alternate;
+	animation-timing-function: steps(2);
 }
 
 @keyframes bred {
-	from { color: black; transform: scale(1, 1); }
-	to { color: red; transform: scale(1.5, 1.5); }
+	from { color: black; }
+	to { color: red; }
 }

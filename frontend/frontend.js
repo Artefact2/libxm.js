@@ -189,16 +189,16 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 	form.prop('id', 'actions');
 	form.submit(function(e) { e.preventDefault(); });
 
-	var gminus = $(document.createElement('label'));
-	gminus.text('🔉');
+	var gminus = $(document.createElement('button'));
+	gminus.text('Volume -');
 	gminus.prop('title', 'Lower gain by 1 dB');
 
-	var gplus = $(document.createElement('label'));
-	gplus.text('🔊');
+	var gplus = $(document.createElement('button'));
+	gplus.text('Volume +');
 	gplus.prop('title', 'Increase gain by 1 dB (MAY CREATE CLIPPING)');
 
 	var ulabel = $(document.createElement('label'));
-	ulabel.text('📂');
+	ulabel.text('Load .XM');
 	ulabel.prop('title', 'Load .XM module…');
 	ulabel.prop('for', 'iupload');
 	ulabel.attr('for', 'iupload');
@@ -207,8 +207,8 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 	input.prop('type', 'file');
 	input.prop('id', 'iupload');
 
-	var ppb = $(document.createElement('label'));
-	ppb.text('⏯');
+	var ppb = $(document.createElement('button'));
+	ppb.text('Play/Pause');
 	ppb.prop('title', 'Play/Pause');
 	ppb.addClass('blinkred');
 
@@ -273,11 +273,16 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 					felements[j] = $(document.createElement('div')).css({
 						width: (100 / nchans) + '%',
 						left: (100 * j / nchans) + '%',
+						opacity: '0',
 					})
 				);
 			}
 
-			mtitle.text("CURRENTLY PLAYING\n-----------------\n" + Module.AsciiToString(Module._xm_get_module_name(moduleContext)) + "\n" + Module.AsciiToString(Module._xm_get_tracker_name(moduleContext)));
+			mtitle.text(Module.AsciiToString(Module._xm_get_module_name(moduleContext)).trim() + "\n" + Module.AsciiToString(Module._xm_get_tracker_name(moduleContext)).trim() + "\n\n");
+			for(var i = 1; i <= ninsts; ++i) {
+				var iname = Module.AsciiToString(Module._xm_get_instrument_name(moduleContext, i));
+				mtitle.append(iname + " ".repeat(22-iname.length) + "\n");
+			}
 		}, function() {
 			alert('Broken module. Check the console for more info.');
 		});
