@@ -92,6 +92,7 @@ p#mtitle {
 	right: 1em;
 	text-align: right;
 	z-index: 10;
+	white-space: pre-line;
 }
 
 footer a {

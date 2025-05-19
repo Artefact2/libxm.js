@@ -11,6 +11,7 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 	var AUDIO_BUFFER_LENGTH = 4096;
 	var XM_BUFFER_LENGTH = 256;
 	var RATE = 48000;
+	var RATE_BIGINT = BigInt(RATE);
 	var MAX_XMDATA = 256;
 
 	var audioContext = new AudioContext();
@@ -19,8 +20,7 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 		audioContext.createBuffer(2, AUDIO_BUFFER_LENGTH, RATE),
 	];
 
-	var LATENCY_COMP = RATE * (audioContext.outputLatency | audioContext.baseLatency | 0.25)
-		- RATE / 60;
+	var LATENCY_COMP = RATE * (audioContext.outputLatency | audioContext.baseLatency | 0.25) - RATE / 60;
 
 	var playing = false;
 	var needsResync = true;
@@ -31,7 +31,7 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 
 	var xmActions = [];
 	var cFloatArray = Module._malloc(2 * XM_BUFFER_LENGTH * 4);
-	var moduleContextPtr = Module._malloc(4);
+	var prescanData = Module._malloc(Module._XM_PRESCAN_DATA_SIZE);
 	var moduleContext = null;
 	var cSamplesPtr = Module._malloc(8);
 
@@ -64,27 +64,23 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 		var reader = new FileReader();
 		reader.onload = function() {
 			runXmContextAction(function() {
-				hasdata = false;
-
 				if(moduleContext !== null) {
-					Module._xm_free_context(moduleContext);
+					Module._free(moduleContext);
 					moduleContext = null;
 				}
 
 				var view = new Int8Array(reader.result);
 				var moduleStringBuffer = Module._malloc(view.length);
 				Module.writeArrayToMemory(view, moduleStringBuffer);
-				var ret = Module._xm_create_context(
-					moduleContextPtr, moduleStringBuffer, RATE
-				);
-				Module._free(moduleStringBuffer);
+				var ret = Module._xm_prescan_module(moduleStringBuffer, view.length, prescanData);
 
-				if(ret !== 0) {
-					moduleContext = null;
-				} else {
-					moduleContext = getValue(moduleContextPtr, '*');
+				if(ret === 1) {
+					moduleContext = Module._malloc(Module._xm_size_for_context(prescanData));
+					Module._xm_create_context(moduleContext, prescanData, moduleStringBuffer, view.length, RATE);
 				}
-			})
+
+                                Module._free(moduleStringBuffer);
+			});
 
 			if(moduleContext === null) {
 				failure();
@@ -282,7 +278,7 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 				);
 			}
 
-			mtitle.text("Currently playing: " + Module.AsciiToString(Module._xm_get_module_name(moduleContext)));
+			mtitle.text("CURRENTLY PLAYING\n-----------------\n" + Module.AsciiToString(Module._xm_get_module_name(moduleContext)) + "\n" + Module.AsciiToString(Module._xm_get_tracker_name(moduleContext)));
 		}, function() {
 			alert('Broken module. Check the console for more info.');
 		});
@@ -383,14 +379,15 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 		var xmd = xmdata[0];
 
 		for(var i = 0; i < ninsts; ++i) {
-			var dist = (xmd.sampleCount - xmd.instruments[i].latestTrigger) / RATE;
+			var dist = Number((xmd.sampleCount - xmd.instruments[i].latestTrigger) / RATE_BIGINT);
+
 			ielements[i].css({
 				opacity: Math.min(1.0, Math.max(0.0, 1.0 - 2.0 * dist)),
 			});
 		}
 
 		for(var j = 0; j < nchans; ++j) {
-			var dist = (xmd.sampleCount - xmd.channels[j].latestTrigger) / RATE;
+			var dist = Number((xmd.sampleCount - xmd.channels[j].latestTrigger) / RATE_BIGINT);
 
 			celements[j].css({
 				'background-color': 'hsl(' + (360 * (xmd.channels[j].instrument - 1) / ninsts) + ', 100%, ' + (75.0 + 50.0 * dist) + '%)',
