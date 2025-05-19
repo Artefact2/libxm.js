@@ -11,7 +11,6 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 	var AUDIO_BUFFER_LENGTH = 4096;
 	var XM_BUFFER_LENGTH = 256;
 	var RATE = 48000;
-	var RATE_BIGINT = BigInt(RATE);
 	var MAX_XMDATA = 256;
 
 	var audioContext = new AudioContext();
@@ -379,7 +378,7 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 		var xmd = xmdata[0];
 
 		for(var i = 0; i < ninsts; ++i) {
-			var dist = Number((xmd.sampleCount - xmd.instruments[i].latestTrigger) / RATE_BIGINT);
+			var dist = Number(xmd.sampleCount - xmd.instruments[i].latestTrigger) / RATE;
 
 			ielements[i].css({
 				opacity: Math.min(1.0, Math.max(0.0, 1.0 - 2.0 * dist)),
@@ -387,7 +386,7 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 		}
 
 		for(var j = 0; j < nchans; ++j) {
-			var dist = Number((xmd.sampleCount - xmd.channels[j].latestTrigger) / RATE_BIGINT);
+			var dist = Number((xmd.sampleCount - xmd.channels[j].latestTrigger)) / RATE;
 
 			celements[j].css({
 				'background-color': 'hsl(' + (360 * (xmd.channels[j].instrument - 1) / ninsts) + ', 100%, ' + (75.0 + 50.0 * dist) + '%)',
