@@ -1,5 +1,3 @@
 build/
-frontend/libxm.js
-frontend/libxm.js.mem
-frontend/libxm.wasm
+frontend/index.html
 frontend/xm/index.txt
