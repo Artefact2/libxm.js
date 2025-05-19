@@ -1,7 +1,5 @@
-@import url('https://fonts.googleapis.com/css?family=Inconsolata');
-
 body {
-	font-family: 'Inconsolata', monospace;
+	font-family: monospace;
 	text-align: center;
 	margin: 0;
 	padding: 0;
@@ -88,7 +86,7 @@ footer > p {
 p#mtitle {
 	position: absolute;
 	margin: 0;
-	top: 5em;
+	top: 6em;
 	right: 1em;
 	text-align: right;
 	z-index: 10;
