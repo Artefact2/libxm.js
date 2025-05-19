@@ -19,7 +19,7 @@ var Module = { onRuntimeInitialized: function() { $(function() {
 		audioContext.createBuffer(2, AUDIO_BUFFER_LENGTH, RATE),
 	];
 
-	var LATENCY_COMP = RATE * (audioContext.outputLatency | audioContext.baseLatency | 0.25) - RATE / 60;
+	var LATENCY_COMP = RATE * (audioContext.outputLatency | audioContext.baseLatency | 0.25) + AUDIO_BUFFER_LENGTH;
 
 	var playing = false;
 	var needsResync = true;
