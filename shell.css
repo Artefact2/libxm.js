@@ -97,7 +97,7 @@ footer a {
 	color: hsla(0, 0%, 30%, 1);
 }
 
-footer > p > small > ul {
+footer > ul {
 	margin: 0;
 	padding: 0;
 	list-style-type: none;

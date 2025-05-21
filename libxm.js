@@ -304,54 +304,31 @@ var Module = { onRuntimeInitialized: function() {
 		});
 	};
 
+	document.getElementById('mods').onclick = function(e) {
+		e.preventDefault();
+		if(e.target.getAttribute('href') === null) return;
 
-	var xhri = new XMLHttpRequest();
-	xhri.open('GET', './xm/index.txt');
-	xhri.responseType = 'text';
-	xhri.onload = function() {
-		if(this.status !== 200) return;
-
-		const s = document.querySelector("footer > p > small");
-		s.append(document.createElement('br'));
-		s.append('Or load one of these:');
-		const ul = document.createElement('ul');
-		s.append(ul);
-
-		const xms = this.responseText.split("\n");
-                let l = xms.length - 1;
-		for(let i = 0; i < l; ++i) {
-			let li = document.createElement('li');
-			let a = document.createElement('a');
-			li.append(a);
-			ul.append(li);
-
-			a.innerText = xms[i];
-			a.setAttribute('href', './xm/' + xms[i]);
-			a.onclick = function(e) {
-				e.preventDefault();
-                                const xhr = new XMLHttpRequest();
-				xhr.open('GET', e.target.getAttribute('href'));
-				xhr.responseType = 'blob';
-				xhr.onload = function() {
-					if(this.status !== 200) return;
-					realLoadModule(this.response);
-				};
-				xhr.send();
-			};
-		}
-
-		setTimeout(function() {
-			var mods = ul.querySelectorAll('a');
-			var n = window.location.hash.length >= 2 ? parseInt(window.location.hash.substring(1)) : Math.floor(Math.random() * mods.length);
-			mods[n].click();
-		}, 250);
+                const xhr = new XMLHttpRequest();
+		xhr.open('GET', e.target.getAttribute('href'));
+		xhr.responseType = 'blob';
+		xhr.onload = function() {
+			if(this.status !== 200) return;
+			realLoadModule(this.response);
+		};
+		xhr.send();
 	};
-	xhri.send();
 
-	var notes = [
-		'A-', 'A#', 'B-', 'C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#',
+        const mods = document.querySelectorAll('ul#mods a');
+	const n = window.location.hash.length >= 2
+	      ? parseInt(window.location.hash.substring(1))
+	      : Math.floor(Math.random() * mods.length);
+	mods[n].click();
+
+	const notes = [
+		'A-', 'A#', 'B-', 'C-', 'C#', 'D-',
+		'D#', 'E-', 'F-', 'F#', 'G-', 'G#',
 	];
-	var render = function() {
+	const render = function() {
 		requestAnimationFrame(render);
 		if(xmdata.length === 0) return;
 
