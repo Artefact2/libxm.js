@@ -11,7 +11,7 @@
 Module['onRuntimeInitialized'] = function() {
 	var AUDIO_BUFFER_LENGTH = 4096;
 	var XM_BUFFER_LENGTH = 256;
-	var RATE = 48000;
+	const RATE = 44100;
 	var MAX_XMDATA = 256;
 
 	var audioContext = new AudioContext();
@@ -30,9 +30,8 @@ Module['onRuntimeInitialized'] = function() {
 	var clip = false;
 
 	var xmActions = [];
+	let ctx = 0;
 	var cFloatArray = Module['_malloc'](2 * XM_BUFFER_LENGTH * 4);
-	var prescanData = Module['_malloc'](Module['_XM_PRESCAN_DATA_SIZE']);
-	var moduleContext = null;
 	var cSamplesPtr = Module['_malloc'](4);
 
 	const dinstruments = document.getElementById('instruments');
@@ -64,25 +63,15 @@ Module['onRuntimeInitialized'] = function() {
 		var reader = new FileReader();
 		reader.onloadend = function() {
 			runXmContextAction(function() {
-				if(moduleContext !== null) {
-					Module['_free'](moduleContext);
-					moduleContext = null;
-				}
-
-				var view = new Int8Array(reader.result);
-				var moduleStringBuffer = Module['_malloc'](view.length);
-				Module['writeArrayToMemory'](view, moduleStringBuffer);
-				var ret = Module['_xm_prescan_module'](moduleStringBuffer, view.length, prescanData);
-
-				if(ret === 1) {
-					moduleContext = Module['_malloc'](Module['_xm_size_for_context'](prescanData));
-					Module['_xm_create_context'](moduleContext, prescanData, moduleStringBuffer, view.length, RATE);
-				}
-
-                                Module['_free'](moduleStringBuffer);
+				const view = new Int8Array(reader.result);
+				const moddata = Module['_malloc'](view.length);
+				Module['writeArrayToMemory'](view, moddata);
+				Module['_a'](moddata);
+				Module['_free'](moddata);
+				ctx = Module['getValue'](Module['_c'], '*');
 			});
 
-			if(moduleContext === null) {
+			if(ctx === 0) {
 				failure();
 				return;
 			}
@@ -97,7 +86,7 @@ Module['onRuntimeInitialized'] = function() {
 		var r = buffer.getChannelData(1);
 
 		for(var off = 0; off < AUDIO_BUFFER_LENGTH; off += XM_BUFFER_LENGTH) {
-			Module['_xm_generate_samples'](moduleContext, cFloatArray, XM_BUFFER_LENGTH);
+			Module['_xm_generate_samples'](ctx, cFloatArray, XM_BUFFER_LENGTH);
 			for(var j = 0; j < XM_BUFFER_LENGTH; ++j) {
 				l[off+j] = Module['getValue'](cFloatArray + 8 * j, 'float') * amp;
 				r[off+j] = Module['getValue'](cFloatArray + 8 * j + 4, 'float') * amp;
@@ -108,25 +97,25 @@ Module['onRuntimeInitialized'] = function() {
 
 			var xmd = {};
 
-			Module['_xm_get_position'](moduleContext, null, null, null, cSamplesPtr);
-			xmd.sampleCount = Module['getValue'](cSamplesPtr, 'i64');
+			Module['_xm_get_position'](ctx, null, null, null, cSamplesPtr);
+			xmd.sampleCount = Module['getValue'](cSamplesPtr, 'i32');
 
 			xmd.instruments = [];
 			for(var j = 1; j <= ninsts; ++j) {
 				xmd.instruments.push({
-					latestTrigger: Module['_xm_get_latest_trigger_of_instrument'](moduleContext, j),
+					latestTrigger: Module['_xm_get_latest_trigger_of_instrument'](ctx, j),
 				});
 			}
 
 			xmd.channels = [];
 			for(var j = 1; j <= nchans; ++j) {
 				xmd.channels.push({
-					active: Module['_xm_is_channel_active'](moduleContext, j),
-					latestTrigger: Module['_xm_get_latest_trigger_of_channel'](moduleContext, j),
-					volume: Module['_xm_get_volume_of_channel'](moduleContext, j),
-					panning: Module['_xm_get_panning_of_channel'](moduleContext, j),
-					frequency: Module['_xm_get_frequency_of_channel'](moduleContext, j),
-					instrument: Module['_xm_get_instrument_of_channel'](moduleContext, j),
+					active: Module['_xm_is_channel_active'](ctx, j),
+					latestTrigger: Module['_xm_get_latest_trigger_of_channel'](ctx, j),
+					volume: Module['_xm_get_volume_of_channel'](ctx, j),
+					panning: Module['_xm_get_panning_of_channel'](ctx, j),
+					frequency: Module['_xm_get_frequency_of_channel'](ctx, j),
+					instrument: Module['_xm_get_instrument_of_channel'](ctx, j),
 				});
 			}
 
@@ -143,12 +132,12 @@ Module['onRuntimeInitialized'] = function() {
 				s.buffer = buffers[index];
 				s.connect(audioContext.destination);
 
-				if(moduleContext !== null) {
+				if(ctx !== 0) {
 					runXmContextAction(function() {
 						if(needsResync) {
 							t0 = start;
-							Module['_xm_get_position'](moduleContext, null, null, null, cSamplesPtr);
-							s0 = Module['getValue'](cSamplesPtr, 'i64');
+							Module['_xm_get_position'](ctx, null, null, null, cSamplesPtr);
+							s0 = Module['getValue'](cSamplesPtr, 'i32');
 							needsResync = false;
 						}
 						fillBuffer(s.buffer);
@@ -167,8 +156,8 @@ Module['onRuntimeInitialized'] = function() {
 
 		var t = RATE * audioContext.currentTime + AUDIO_BUFFER_LENGTH;
 		runXmContextAction(function() {
-			Module['_xm_get_position'](moduleContext, null, null, null, cSamplesPtr);
-			s0 = Module['getValue'](cSamplesPtr, 'i64');
+			Module['_xm_get_position'](ctx, null, null, null, cSamplesPtr);
+			s0 = Module['getValue'](cSamplesPtr, 'i32');
 		});
 
 		(makeSourceGenerator(0, t))();
@@ -239,8 +228,8 @@ Module['onRuntimeInitialized'] = function() {
 			dfrequencies.replaceChildren();
 			xmdata.splice(0, xmdata.length);
 
-			ninsts = Module['_xm_get_number_of_instruments'](moduleContext);
-			nchans = Module['_xm_get_number_of_channels'](moduleContext);
+			ninsts = Module['_xm_get_number_of_instruments'](ctx);
+			nchans = Module['_xm_get_number_of_channels'](ctx);
 
 			for(var i = 0; i < ninsts; ++i) {
 				dinstruments.append(ielements[i] = document.createElement('div'));
@@ -258,9 +247,9 @@ Module['onRuntimeInitialized'] = function() {
 				felements[j].setAttribute('style', 'width: ' + (100 / nchans) + '%; left: ' + (100 * j / nchans) + '%; opacity: 0;');
 			}
 
-			mtitle.innerText = Module['AsciiToString'](Module['_xm_get_module_name'](moduleContext)).trim() + "\n" + Module['AsciiToString'](Module['_xm_get_tracker_name'](moduleContext)).trim() + "\n\n";
+			mtitle.innerText = Module['AsciiToString'](Module['_xm_get_module_name'](ctx)).trim() + "\n" + Module['AsciiToString'](Module['_xm_get_tracker_name'](ctx)).trim() + "\n\n";
 			for(var i = 1; i <= ninsts; ++i) {
-				var iname = Module['AsciiToString'](Module['_xm_get_instrument_name'](moduleContext, i));
+				var iname = Module['AsciiToString'](Module['_xm_get_instrument_name'](ctx, i));
 				mtitle.append(iname + " ".repeat(22-iname.length) + "\n");
 			}
 		}, function() {
@@ -287,8 +276,8 @@ Module['onRuntimeInitialized'] = function() {
 		div.classList.toggle('muted');
 
 		runXmContextAction(function() {
-			if(moduleContext === null) return;
-			Module['_xm_mute_instrument'](moduleContext, Array.prototype.indexOf.call(dinstruments.children, div)+1, div.classList.contains('muted'));
+			if(ctx === 0) return;
+			Module['_xm_mute_instrument'](ctx, Array.prototype.indexOf.call(dinstruments.children, div)+1, div.classList.contains('muted'));
 		});
 	};
 
@@ -298,8 +287,8 @@ Module['onRuntimeInitialized'] = function() {
 		div.classList.toggle('muted');
 
 		runXmContextAction(function() {
-			if(moduleContext === null) return;
-			Module['_xm_mute_channel'](moduleContext, Array.prototype.indexOf.call(dchannels.children, div)+1, div.classList.contains('muted'));
+			if(ctx === 0) return;
+			Module['_xm_mute_channel'](ctx, Array.prototype.indexOf.call(dchannels.children, div)+1, div.classList.contains('muted'));
 		});
 	};
 
@@ -339,13 +328,13 @@ Module['onRuntimeInitialized'] = function() {
 		var xmd = xmdata[0];
 
 		for(var i = 0; i < ninsts; ++i) {
-			var dist = Number(xmd.sampleCount - xmd.instruments[i].latestTrigger) / RATE;
+			var dist = (xmd.sampleCount - xmd.instruments[i].latestTrigger) / RATE;
 
 			ielements[i].style['opacity'] = Math.min(1.0, Math.max(0.0, 1.0 - 2.0 * dist));
 		}
 
 		for(var j = 0; j < nchans; ++j) {
-			var dist = Number((xmd.sampleCount - xmd.channels[j].latestTrigger)) / RATE;
+			var dist = (xmd.sampleCount - xmd.channels[j].latestTrigger) / RATE;
 
 			celements[j].style['background-color'] = 'hsl(' + (360 * (xmd.channels[j].instrument - 1) / ninsts) + ', 100%, ' + (75.0 + 50.0 * dist) + '%)';
 			celements[j].innerText = xmd.channels[j].active && xmd.channels[j].volume > .01 ? notes[Math.round(12.0 * Math.log(xmd.channels[j].frequency / 440.0) / Math.log(2)) % 12] + Math.floor(Math.log(xmd.channels[j].frequency) / Math.log(2) - 10) : '';
