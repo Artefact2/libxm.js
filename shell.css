@@ -83,13 +83,13 @@ footer > p {
 	margin: 0;
 }
 
-p#mtitle {
+p#it {
 	position: absolute;
 	margin: 0;
 	top: 6em;
 	right: 1em;
-	text-align: right;
-	z-index: 10;
+	width: 22ch;
+	text-align: left;
 	white-space: pre;
 }
 

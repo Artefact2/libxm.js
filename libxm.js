@@ -38,7 +38,6 @@ Module['onRuntimeInitialized'] = function() {
 	const dchannels = document.getElementById('channels');
 	const dvolumes = document.getElementById('volumes');
 	const dfrequencies = document.getElementById('frequencies');
-	const mtitle = document.getElementById('mtitle');
 	let ninsts = 0, nchans = 0;
 	const ielements = [];
 	const celements = [];
@@ -247,11 +246,8 @@ Module['onRuntimeInitialized'] = function() {
 				felements[j].setAttribute('style', 'width: ' + (100 / nchans) + '%; left: ' + (100 * j / nchans) + '%; opacity: 0;');
 			}
 
-			mtitle.innerText = Module['AsciiToString'](Module['_xm_get_module_name'](ctx)).trim() + "\n" + Module['AsciiToString'](Module['_xm_get_tracker_name'](ctx)).trim() + "\n\n";
-			for(var i = 1; i <= ninsts; ++i) {
-				var iname = Module['AsciiToString'](Module['_xm_get_instrument_name'](ctx, i));
-				mtitle.append(iname + " ".repeat(22-iname.length) + "\n");
-			}
+			document.getElementById('mt').innerText =
+				Module['AsciiToString'](Module['_s']);
 		}, function() {
 			alert('An error happened while loading the module, check the console for more info.');
 		});
