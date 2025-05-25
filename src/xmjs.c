@@ -14,7 +14,9 @@
 
 #define RATE 44100
 
-xm_context_t* c = 0;
+static xm_context_t* c = 0;
+
+uint16_t n;
 char s[24*256];
 
 static char* strcpy(char* dst, const char* src) {
@@ -24,9 +26,9 @@ static char* strcpy(char* dst, const char* src) {
 	return dst;
 }
 
-/* Load context into c and module title/tracker name/instrument text into s.
-   If loading fails, set c to 0. */
-void a(const char* moddata) {
+/* Load context and return it, load channel/instrument count in n and module
+   title/tracker name/instrument text into s. If loading fails, return 0. */
+xm_context_t* a(const char* moddata) {
 	if(c) {
 		free(c);
 		c = 0;
@@ -34,15 +36,17 @@ void a(const char* moddata) {
 
 	xm_prescan_data_t* p = alloca(XM_PRESCAN_DATA_SIZE);
 	if(xm_prescan_module(moddata, UINT32_MAX, p) == false) {
-		return;
+		return 0;
 	}
 
 	c = malloc(xm_size_for_context(p));
-	if(c == NULL) {
-		c = 0;
-		return;
+	if(c == 0) {
+		return 0;
 	}
 	c = xm_create_context((void*)c, p, moddata, UINT32_MAX, RATE);
+
+	n = (uint16_t)(xm_get_number_of_channels(c) << 8)
+		| xm_get_number_of_instruments(c);
 
 	char* t = strcpy(s, xm_get_module_name(c));
 	*t = '\n'; ++t;
@@ -54,4 +58,6 @@ void a(const char* moddata) {
 		*t = '\n'; ++t;
 	}
 	*t = '\0';
+
+	return c;
 }

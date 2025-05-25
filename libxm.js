@@ -65,9 +65,8 @@ Module['onRuntimeInitialized'] = function() {
 				const view = new Int8Array(reader.result);
 				const moddata = Module['_malloc'](view.length);
 				Module['writeArrayToMemory'](view, moddata);
-				Module['_a'](moddata);
+				ctx = Module['_a'](moddata);
 				Module['_free'](moddata);
-				ctx = Module['getValue'](Module['_c'], '*');
 			});
 
 			if(ctx === 0) {
@@ -227,8 +226,9 @@ Module['onRuntimeInitialized'] = function() {
 			dfrequencies.replaceChildren();
 			xmdata.splice(0, xmdata.length);
 
-			ninsts = Module['_xm_get_number_of_instruments'](ctx);
-			nchans = Module['_xm_get_number_of_channels'](ctx);
+			nchans = Module['getValue'](Module['_n'], 'i16');
+			ninsts = nchans % 256;
+			nchans >>= 8;
 
 			for(var i = 0; i < ninsts; ++i) {
 				dinstruments.append(ielements[i] = document.createElement('div'));
@@ -246,7 +246,7 @@ Module['onRuntimeInitialized'] = function() {
 				felements[j].setAttribute('style', 'width: ' + (100 / nchans) + '%; left: ' + (100 * j / nchans) + '%; opacity: 0;');
 			}
 
-			document.getElementById('mt').innerText =
+			document.getElementById('it').innerText =
 				Module['AsciiToString'](Module['_s']);
 		}, function() {
 			alert('An error happened while loading the module, check the console for more info.');
