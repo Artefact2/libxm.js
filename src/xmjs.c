@@ -7,17 +7,22 @@
  * http://sam.zoy.org/wtfpl/COPYING for more details. */
 
 #include <xm.h>
-#include <stdlib.h>
 
 /* The public symbols are relatively terse, because emscripten cannot mangle
    them. */
 
 #define RATE 44100
+#define XM_BUFFER_LENGTH 256
 
-static xm_context_t* c = 0;
+char m[16 << 20]; /* Module data, filled in libxm.js */
+static char mempool[48 << 20]; /* Memory for xm_context_t */
 
-uint16_t n;
-char s[24*256];
+float f[2 * XM_BUFFER_LENGTH]; /* Buffer for audio frames, read by libxm.js */
+uint32_t l; /* Number of generated samples, used in libxm.js by
+               xm_get_position() */
+
+uint16_t n; /* Packed number of channels/instruments */
+char s[24*256]; /* Formatted module/tracker/instrument text */
 
 static char* strcpy(char* dst, const char* src) {
 	while(*src) {
@@ -28,22 +33,19 @@ static char* strcpy(char* dst, const char* src) {
 
 /* Load context and return it, load channel/instrument count in n and module
    title/tracker name/instrument text into s. If loading fails, return 0. */
-xm_context_t* a(const char* moddata) {
-	if(c) {
-		free(c);
-		c = 0;
-	}
-
-	xm_prescan_data_t* p = alloca(XM_PRESCAN_DATA_SIZE);
-	if(xm_prescan_module(moddata, UINT32_MAX, p) == false) {
+xm_context_t* a() {
+	xm_prescan_data_t* p = (void*)
+		(mempool + sizeof(mempool) - XM_PRESCAN_DATA_SIZE);
+	if(xm_prescan_module(m, sizeof(m), p) == false) {
 		return 0;
 	}
 
-	c = malloc(xm_size_for_context(p));
-	if(c == 0) {
+	if(xm_size_for_context(p) > sizeof(mempool) - XM_PRESCAN_DATA_SIZE) {
 		return 0;
 	}
-	c = xm_create_context((void*)c, p, moddata, UINT32_MAX, RATE);
+
+	xm_context_t* c =
+		xm_create_context(mempool, p, m, sizeof(m), RATE);
 
 	n = (uint16_t)(xm_get_number_of_channels(c) << 8)
 		| xm_get_number_of_instruments(c);

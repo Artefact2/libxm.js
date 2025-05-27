@@ -31,8 +31,8 @@ Module['onRuntimeInitialized'] = function() {
 
 	var xmActions = [];
 	let ctx = 0;
-	var cFloatArray = Module['_malloc'](2 * XM_BUFFER_LENGTH * 4);
-	var cSamplesPtr = Module['_malloc'](4);
+	var cFloatArray = Module['_f'];
+	var cSamplesPtr = Module['_l'];
 
 	const dinstruments = document.getElementById('instruments');
 	const dchannels = document.getElementById('channels');
@@ -45,29 +45,16 @@ Module['onRuntimeInitialized'] = function() {
 	const felements = [];
 	const xmdata = [];
 
-	var runXmContextAction = function(action) {
-		if(xmActions.length > 0) {
-			xmActions.push(action);
-			return;
-		}
-
-		xmActions.push(action);
-
-		while(xmActions.length > 0) {
-			(xmActions.shift())();
-		}
-	};
-
 	var loadModule = function(file, success, failure) {
 		var reader = new FileReader();
 		reader.onloadend = function() {
-			runXmContextAction(function() {
-				const view = new Int8Array(reader.result);
-				const moddata = Module['_malloc'](view.length);
-				Module['writeArrayToMemory'](view, moddata);
-				ctx = Module['_a'](moddata);
-				Module['_free'](moddata);
-			});
+			const view = new Int8Array(reader.result);
+			if(view.length > 16 << 20) {
+				ctx = 0;
+			} else {
+				Module['writeArrayToMemory'](view, Module['_m']);
+				ctx = Module['_a']();
+			}
 
 			if(ctx === 0) {
 				failure();
@@ -131,15 +118,13 @@ Module['onRuntimeInitialized'] = function() {
 				s.connect(audioContext.destination);
 
 				if(ctx !== 0) {
-					runXmContextAction(function() {
-						if(needsResync) {
-							t0 = start;
-							Module['_xm_get_position'](ctx, null, null, null, cSamplesPtr);
-							s0 = Module['getValue'](cSamplesPtr, 'i32');
-							needsResync = false;
-						}
-						fillBuffer(s.buffer);
-					});
+					if(needsResync) {
+						t0 = start;
+						Module['_xm_get_position'](ctx, null, null, null, cSamplesPtr);
+						s0 = Module['getValue'](cSamplesPtr, 'i32');
+						needsResync = false;
+					}
+					fillBuffer(s.buffer);
 				} else {
 					var l = s.buffer.getChannelData(0);
 					var r = s.buffer.getChannelData(1);
@@ -153,10 +138,8 @@ Module['onRuntimeInitialized'] = function() {
 		};
 
 		var t = RATE * audioContext.currentTime + AUDIO_BUFFER_LENGTH;
-		runXmContextAction(function() {
-			Module['_xm_get_position'](ctx, null, null, null, cSamplesPtr);
-			s0 = Module['getValue'](cSamplesPtr, 'i32');
-		});
+		Module['_xm_get_position'](ctx, null, null, null, cSamplesPtr);
+		s0 = Module['getValue'](cSamplesPtr, 'i32');
 
 		(makeSourceGenerator(0, t))();
 		(makeSourceGenerator(1, t + AUDIO_BUFFER_LENGTH))();
@@ -271,10 +254,8 @@ Module['onRuntimeInitialized'] = function() {
 		if(!dinstruments.contains(div)) return;
 		div.classList.toggle('muted');
 
-		runXmContextAction(function() {
-			if(ctx === 0) return;
-			Module['_xm_mute_instrument'](ctx, Array.prototype.indexOf.call(dinstruments.children, div)+1, div.classList.contains('muted'));
-		});
+		if(ctx === 0) return;
+		Module['_xm_mute_instrument'](ctx, Array.prototype.indexOf.call(dinstruments.children, div)+1, div.classList.contains('muted'));
 	};
 
 	dchannels.onclick = function(e) {
@@ -282,10 +263,8 @@ Module['onRuntimeInitialized'] = function() {
 		if(!dchannels.contains(div)) return;
 		div.classList.toggle('muted');
 
-		runXmContextAction(function() {
-			if(ctx === 0) return;
-			Module['_xm_mute_channel'](ctx, Array.prototype.indexOf.call(dchannels.children, div)+1, div.classList.contains('muted'));
-		});
+		if(ctx === 0) return;
+		Module['_xm_mute_channel'](ctx, Array.prototype.indexOf.call(dchannels.children, div)+1, div.classList.contains('muted'));
 	};
 
 	document.getElementById('mods').onclick = function(e) {
