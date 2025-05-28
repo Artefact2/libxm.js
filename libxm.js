@@ -224,7 +224,7 @@ Module['onRuntimeInitialized'] = function() {
 		div.classList.toggle('m');
 
 		if(ctx === 0) return;
-		Module['_xm_mute_instrument'](ctx, Array.prototype.indexOf.call(dinstruments.children, div)+1, div.classList.contains('m'));
+		Module['_xm_mute_instrument'](ctx, ielements.indexOf(div)+1, div.classList.contains('m'));
 	};
 
 	dchannels.onclick = function(e) {
@@ -233,21 +233,15 @@ Module['onRuntimeInitialized'] = function() {
 		div.classList.toggle('m');
 
 		if(ctx === 0) return;
-		Module['_xm_mute_channel'](ctx, Array.prototype.indexOf.call(dchannels.children, div)+1, div.classList.contains('m'));
+		Module['_xm_mute_channel'](ctx, celements.indexOf(div)+1, div.classList.contains('m'));
 	};
 
 	document.getElementById('x').onclick = function(e) {
 		e.preventDefault();
 		if(e.target.getAttribute('href') === null) return;
-
-                const xhr = new XMLHttpRequest();
-		xhr.open('GET', e.target.getAttribute('href'));
-		xhr.responseType = 'blob';
-		xhr.onload = function() {
-			if(this.status !== 200) return;
-			realLoadModule(this.response);
-		};
-		xhr.send();
+		fetch(e.target.getAttribute('href'))
+			.then(response => response.blob())
+			.then(response => realLoadModule(response));
 	};
 
         const mods = document.querySelectorAll('#x a');
