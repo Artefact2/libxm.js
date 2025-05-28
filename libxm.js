@@ -12,9 +12,10 @@ Module['onRuntimeInitialized'] = function() {
 	const AUDIO_BUFFER_LENGTH = 4096;
 	const XM_BUFFER_LENGTH = 256;
 	const RATE = 44100;
-	const MAX_XMDATA = 256;
 
 	const audioContext = new AudioContext();
+	/* audioContext.currentTime after module load */
+	let audioContextOffset = 0;
 	const gain_node = audioContext.createGain();
 	gain_node.connect(audioContext.destination);
 	const buffers = [
@@ -26,14 +27,11 @@ Module['onRuntimeInitialized'] = function() {
 		audioContext.outputLatency + audioContext.baseLatency
 	) + AUDIO_BUFFER_LENGTH;
 
-	var needsResync = true;
-	var t0 = 0; /* Sync point in audio ctx */
-	var s0 = 0; /* Sync point in xm ctx */
-
 	var xmActions = [];
 	let ctx = 0;
-	var cFloatArray = Module['_f'];
-	var cSamplesPtr = Module['_l'];
+	let generated_buffers = 0;
+	let generated_samples = 0;
+	const cFloatArray = Module['_f'];
 
 	const dinstruments = document.getElementById('i');
 	const dchannels = document.getElementById('c');
@@ -86,8 +84,8 @@ Module['onRuntimeInitialized'] = function() {
 
 			var xmd = {};
 
-			Module['_xm_get_position'](ctx, null, null, null, cSamplesPtr);
-			xmd.sampleCount = Module['getValue'](cSamplesPtr, 'i32');
+			generated_samples += XM_BUFFER_LENGTH;
+			xmd.sampleCount = generated_samples;
 
 			xmd.instruments = [];
 			for(var j = 1; j <= ninsts; ++j) {
@@ -109,45 +107,28 @@ Module['onRuntimeInitialized'] = function() {
 			}
 
 			xmdata.push(xmd);
-			if(xmd.length >= MAX_XMDATA) xmdata.shift();
 		}
 	};
 
-	var setupSources = function() {
-		var makeSourceGenerator = function(index, start) {
-			return function() {
-				var s = audioContext.createBufferSource();
-				s.onended = makeSourceGenerator(index, start + 2 * AUDIO_BUFFER_LENGTH);
-				s.buffer = buffers[index];
-				s.connect(gain_node);
+	const generate_buffer = function() {
+		const s = audioContext.createBufferSource();
+		const index = generated_buffers % 2;
+		s.onended = generate_buffer;
+		s.buffer = buffers[index];
+		s.connect(gain_node);
 
-				if(ctx !== 0) {
-					if(needsResync) {
-						t0 = start;
-						Module['_xm_get_position'](ctx, null, null, null, cSamplesPtr);
-						s0 = Module['getValue'](cSamplesPtr, 'i32');
-						needsResync = false;
-					}
-					fillBuffer(s.buffer);
-				} else {
-					var l = s.buffer.getChannelData(0);
-					var r = s.buffer.getChannelData(1);
-					for(var i = 0; i < AUDIO_BUFFER_LENGTH; ++i) {
-						l[i] = r[i] = 0.0;
-					}
-				}
+		if(ctx !== 0) {
+			fillBuffer(buffers[index]);
+		} else {
+			buffers[index].getChannelData(0).fill(0);
+			buffers[index].getChannelData(1).fill(0);
+		}
 
-				s.start(start / RATE);
-			};
-		};
-
-		var t = RATE * audioContext.currentTime + AUDIO_BUFFER_LENGTH;
-		Module['_xm_get_position'](ctx, null, null, null, cSamplesPtr);
-		s0 = Module['getValue'](cSamplesPtr, 'i32');
-
-		(makeSourceGenerator(0, t))();
-		(makeSourceGenerator(1, t + AUDIO_BUFFER_LENGTH))();
+		s.start(audioContextOffset
+			+ (generated_buffers++) * AUDIO_BUFFER_LENGTH / RATE);
 	};
+	generate_buffer();
+	generate_buffer();
 
 	document.getElementById('n').remove();
 	const form = document.createElement('form');
@@ -191,7 +172,10 @@ Module['onRuntimeInitialized'] = function() {
 
 	var realLoadModule = function(file) {
 		loadModule(file, function() {
-			needsResync = true;
+			audioContextOffset = audioContext.currentTime;
+			generated_buffers = 0;
+			generated_samples = 0;
+
 			dinstruments.replaceChildren();
 			dchannels.replaceChildren();
 			dvolumes.replaceChildren();
@@ -284,8 +268,12 @@ Module['onRuntimeInitialized'] = function() {
 		requestAnimationFrame(render);
 		if(xmdata.length === 0) return;
 
-		var target = RATE * audioContext.currentTime - t0 - LATENCY_COMP;
-		while(xmdata.length >= 2 && xmdata[0].sampleCount - s0 < target && xmdata[1].sampleCount - s0 < target) {
+		const target = RATE *
+		      (audioContext.currentTime - audioContextOffset)
+		      - LATENCY_COMP;
+		while(xmdata.length >= 2
+		      && xmdata[0].sampleCount < target
+		      && xmdata[1].sampleCount < target) {
 			xmdata.shift();
 		}
 
@@ -314,6 +302,5 @@ Module['onRuntimeInitialized'] = function() {
 		}
 	};
 
-	setupSources();
 	requestAnimationFrame(render);
 };

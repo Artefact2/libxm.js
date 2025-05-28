@@ -18,9 +18,6 @@ char m[16 << 20]; /* Module data, filled in libxm.js */
 static char mempool[48 << 20]; /* Memory for xm_context_t */
 
 float f[2 * XM_BUFFER_LENGTH]; /* Buffer for audio frames, read by libxm.js */
-uint32_t l; /* Number of generated samples, used in libxm.js by
-               xm_get_position() */
-
 uint16_t n; /* Packed number of channels/instruments */
 char s[24*256]; /* Formatted module/tracker/instrument text */
 
