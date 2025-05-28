@@ -1,7 +1,8 @@
 libxm.js
 ========
 
-An emscripten port of [libxm](https://github.com/Artefact2/libxm). Proof of concept.
+An emscripten port of [libxm](https://github.com/Artefact2/libxm). Builds a
+standalone HTML file, **13666** bytes after gzip.
 
 Released under the WTFPL license, version 2.
 

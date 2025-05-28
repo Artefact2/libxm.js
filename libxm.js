@@ -8,7 +8,7 @@
 
 "use strict";
 
-Module['onRuntimeInitialized'] = function() {
+Module['onRuntimeInitialized'] = () => {
 	const AUDIO_BUFFER_LENGTH = 4096;
 	const XM_BUFFER_LENGTH = 256;
 	const RATE = 44100;
@@ -27,7 +27,6 @@ Module['onRuntimeInitialized'] = function() {
 		audioContext.outputLatency + audioContext.baseLatency
 	) + AUDIO_BUFFER_LENGTH;
 
-	var xmActions = [];
 	let ctx = 0;
 	let generated_buffers = 0;
 	let generated_samples = 0;
@@ -43,9 +42,64 @@ Module['onRuntimeInitialized'] = function() {
 	const felements = [];
 	const xmdata = [];
 
-	var loadModule = function(file, success) {
-		var reader = new FileReader();
-		reader.onloadend = function() {
+	const postLoadModule = () => {
+		audioContextOffset = audioContext.currentTime;
+		generated_buffers = 0;
+		generated_samples = 0;
+
+		dinstruments.replaceChildren();
+		dchannels.replaceChildren();
+		dvolumes.replaceChildren();
+		dfrequencies.replaceChildren();
+		xmdata.length = 0;
+
+		nchans = Module['HEAPU8'][Module['_n']];
+		ninsts = Module['HEAPU8'][Module['_n'] + 1];
+
+		for(let i = 0; i < ninsts; ++i) {
+			dinstruments.append(
+				ielements[i] = document.createElement('div')
+			);
+			ielements[i].style['background'] =
+				'hsl(' + (360 * i / ninsts) + ', 100%, 40%)';
+		}
+
+		for(let j = 0; j < nchans; ++j) {
+			dchannels.append(
+				celements[j] = document.createElement('div')
+			);
+			dvolumes.append(
+				velements[2*j] = document.createElement('div')
+			);
+			dvolumes.append(
+				velements[2*j+1] = document.createElement('div')
+			);
+			dfrequencies.append(
+				felements[j] = document.createElement('div')
+			);
+
+                        velements[2*j].style['width'] =
+				velements[2*j+1].style['width'] =
+				(50 / nchans) + '%';
+			felements[j].style['width'] = (100 / nchans) + '%';
+			felements[j].style['left'] =
+				velements[2*j].style['left'] =
+				(100 * j / nchans) + '%';
+			velements[2*j+1].style['left'] =
+				(100 * j / nchans + 50 / nchans) + '%';
+		}
+
+		let i;
+		for(i = Module['_n'] + 2; Module['HEAPU8'][i]; ++i) {}
+		document.getElementById('it').innerText =
+			(new TextDecoder()).decode(
+				Module['HEAPU8'].subarray(Module['_n'] + 2, i)
+			);
+	};
+
+	const loadModuleFile = file => {
+		const reader = new FileReader();
+		reader.onloadend = () => {
 			const view = new Uint8Array(reader.result);
 			if(view.length > 16 << 20) {
 				ctx = 0;
@@ -56,15 +110,14 @@ Module['onRuntimeInitialized'] = function() {
 
 			if(ctx === 0) {
 				alert('An error happened while loading the module, check the console for more info.');
-				return;
+			} else {
+				postLoadModule();
 			}
-
-			success();
 		};
 		reader.readAsArrayBuffer(file);
 	};
 
-	const fillBuffer = function(buffer) {
+	const fillBuffer = buffer => {
 		const l = buffer.getChannelData(0);
 		const r = buffer.getChannelData(1);
 
@@ -84,20 +137,20 @@ Module['onRuntimeInitialized'] = function() {
 				cFloatArray + 2 * XM_BUFFER_LENGTH
 			), off);
 
-			var xmd = {};
+			let xmd = {};
 
 			generated_samples += XM_BUFFER_LENGTH;
 			xmd.sampleCount = generated_samples;
 
 			xmd.instruments = [];
-			for(var j = 1; j <= ninsts; ++j) {
+			for(let j = 1; j <= ninsts; ++j) {
 				xmd.instruments.push({
 					latestTrigger: Module['_xm_get_latest_trigger_of_instrument'](ctx, j),
 				});
 			}
 
 			xmd.channels = [];
-			for(var j = 1; j <= nchans; ++j) {
+			for(let j = 1; j <= nchans; ++j) {
 				xmd.channels.push({
 					active: Module['_xm_is_channel_active'](ctx, j),
 					latestTrigger: Module['_xm_get_latest_trigger_of_channel'](ctx, j),
@@ -112,7 +165,7 @@ Module['onRuntimeInitialized'] = function() {
 		}
 	};
 
-	const generate_buffer = function() {
+	const generate_buffer = () => {
 		const s = audioContext.createBufferSource();
 		const index = generated_buffers % 2;
 		s.onended = generate_buffer;
@@ -128,32 +181,32 @@ Module['onRuntimeInitialized'] = function() {
 	document.getElementById('n').remove();
 	const form = document.createElement('form');
 	form.setAttribute('id', 'a');
-	form.onsubmit = function(e) { e.preventDefault(); };
+	form.onsubmit = e => e.preventDefault();
 
 	const gminus = document.createElement('button');
 	gminus.innerText = 'Volume -';
 	gminus.setAttribute('title', 'Lower gain by 1 dB');
-	gminus.onclick = function() {
+	gminus.onclick = () => {
 		gain_node.gain.value /= 1.26;
 	};
 
 	const gplus = document.createElement('button');
 	gplus.innerText = 'Volume +';
 	gplus.setAttribute('title', 'Increase gain by 1 dB (MAY CREATE CLIPPING)');
-	gplus.onclick = function() {
+	gplus.onclick = () => {
 		gain_node.gain.value *= 1.26;
 	};
 
-	var ulabel = document.createElement('label');
+	const ulabel = document.createElement('label');
 	ulabel.innerText = 'Load .XM';
 	ulabel.setAttribute('title', 'Load .XM module…');
 	ulabel.setAttribute('for', 'iupload');
 
-	var input = document.createElement('input');
+	const input = document.createElement('input');
 	input.setAttribute('type', 'file');
 	input.setAttribute('id', 'iupload');
 
-	var ppb = document.createElement('button');
+	const ppb = document.createElement('button');
 	ppb.innerText = 'Play/Pause';
 	ppb.setAttribute('title', 'Play/Pause');
 	ppb.classList.add('br');
@@ -161,55 +214,11 @@ Module['onRuntimeInitialized'] = function() {
 	form.append(gminus, gplus, ulabel, input, ppb);
 	document.body.append(form);
 
-	form.onselectstart = function() {
-		return false;
-	};
+	form.onselectstart = () => false;
 
-	var realLoadModule = function(file) {
-		loadModule(file, function() {
-			audioContextOffset = audioContext.currentTime;
-			generated_buffers = 0;
-			generated_samples = 0;
+	input.onchange = () => loadModuleFile(input.files[0]);
 
-			dinstruments.replaceChildren();
-			dchannels.replaceChildren();
-			dvolumes.replaceChildren();
-			dfrequencies.replaceChildren();
-			xmdata.splice(0, xmdata.length);
-
-			nchans = Module['HEAPU8'][Module['_n']];
-			ninsts = Module['HEAPU8'][Module['_n'] + 1];
-
-			for(var i = 0; i < ninsts; ++i) {
-				dinstruments.append(ielements[i] = document.createElement('div'));
-				ielements[i].setAttribute('style', 'background-color: hsl(' + (360 * i / ninsts) + ', 100%, 40%); opacity: 0;');
-			}
-
-			for(var j = 0; j < nchans; ++j) {
-				dchannels.append(celements[j] = document.createElement('div'));
-				dvolumes.append(velements[2 * j] = document.createElement('div'));
-				dvolumes.append(velements[2 * j + 1] = document.createElement('div'));
-				velements[2*j].setAttribute('style', 'width: ' + (50 / nchans) + '%; left: ' + (100 * j / nchans) + '%; height: 0em;');
-				velements[2*j+1].setAttribute('style', 'width: ' + (50 / nchans) + '%; left: ' + (100 * j / nchans + 50 / nchans) + '%; height: 0em;');
-
-				dfrequencies.append(felements[j] = document.createElement('div'));
-				felements[j].setAttribute('style', 'width: ' + (100 / nchans) + '%; left: ' + (100 * j / nchans) + '%; opacity: 0;');
-			}
-
-			for(let i = Module['_n'] + 2;; ++i) {
-				if(Module['HEAPU8'][i] === 0) {
-					document.getElementById('it').innerText = (new TextDecoder("ascii")).decode(Module['HEAPU8'].subarray(Module['_n'] + 2, i));
-					break;
-				}
-			}
-		});
-	};
-
-	input.onchange = function() {
-		realLoadModule(input.files[0]);
-	};
-
-	ppb.onclick = function(e) {
+	ppb.onclick = e => {
 		ppb.classList.remove('br');
 		if(audioContext.state === "running") {
 			audioContext.suspend();
@@ -218,30 +227,24 @@ Module['onRuntimeInitialized'] = function() {
 		}
 	};
 
-	dinstruments.onclick = function(e) {
+	dinstruments.onclick = e => {
 		const div = e.target.closest('div');
-		if(!dinstruments.contains(div)) return;
 		div.classList.toggle('m');
-
-		if(ctx === 0) return;
 		Module['_xm_mute_instrument'](ctx, ielements.indexOf(div)+1, div.classList.contains('m'));
 	};
 
-	dchannels.onclick = function(e) {
+	dchannels.onclick = e => {
 		const div = e.target.closest('div');
-		if(!dchannels.contains(div)) return;
 		div.classList.toggle('m');
-
-		if(ctx === 0) return;
 		Module['_xm_mute_channel'](ctx, celements.indexOf(div)+1, div.classList.contains('m'));
 	};
 
-	document.getElementById('x').onclick = function(e) {
+	document.getElementById('x').onclick = e => {
 		e.preventDefault();
 		if(e.target.getAttribute('href') === null) return;
 		fetch(e.target.getAttribute('href'))
 			.then(response => response.blob())
-			.then(response => realLoadModule(response));
+			.then(response => loadModuleFile(response));
 	};
 
         const mods = document.querySelectorAll('#x a');
@@ -250,11 +253,7 @@ Module['onRuntimeInitialized'] = function() {
 	      : Math.floor(Math.random() * mods.length);
 	mods[n].click();
 
-	const notes = [
-		'A-', 'A#', 'B-', 'C-', 'C#', 'D-',
-		'D#', 'E-', 'F-', 'F#', 'G-', 'G#',
-	];
-	const render = function() {
+	const render = () => {
 		requestAnimationFrame(render);
 		if(xmdata.length === 0) return;
 
@@ -267,30 +266,40 @@ Module['onRuntimeInitialized'] = function() {
 			xmdata.shift();
 		}
 
-		var xmd = xmdata[0];
+		const xmd = xmdata[0];
 
-		for(var i = 0; i < ninsts; ++i) {
-			var dist = (xmd.sampleCount - xmd.instruments[i].latestTrigger) / RATE;
+		for(let i = 0; i < ninsts; ++i) {
+			const dist = (xmd.sampleCount - xmd.instruments[i].latestTrigger) / RATE;
 
 			ielements[i].style['opacity'] = Math.min(1.0, Math.max(0.0, 1.0 - 2.0 * dist));
 		}
 
-		for(var j = 0; j < nchans; ++j) {
-			var dist = (xmd.sampleCount - xmd.channels[j].latestTrigger) / RATE;
+		for(let j = 0; j < nchans; ++j) {
+			const dist = (xmd.sampleCount - xmd.channels[j].latestTrigger) / RATE;
+			celements[j].style['background'] = 'hsl(' + (360 * (xmd.channels[j].instrument - 1) / ninsts) + ', 100%, ' + (75.0 + 50.0 * dist) + '%)';
 
-			celements[j].style['background-color'] = 'hsl(' + (360 * (xmd.channels[j].instrument - 1) / ninsts) + ', 100%, ' + (75.0 + 50.0 * dist) + '%)';
-			celements[j].innerText = xmd.channels[j].active && xmd.channels[j].volume > .01 ? notes[Math.round(12.0 * Math.log(xmd.channels[j].frequency / 440.0) / Math.log(2)) % 12] + Math.floor(Math.log(xmd.channels[j].frequency) / Math.log(2) - 10) : '';
+			if(!xmd.channels[j].active) {
+				celements[j].innerText = '';
+				felements[j].style['opacity'] =
+					velements[2*j].style['height'] =
+					velements[2*j+1].style['height'] =
+					0;
+				continue;
+			}
 
-			velements[2*j].style['height'] = xmd.channels[j].active ? (5.0 * xmd.channels[j].volume * (1.0 - xmd.channels[j].panning)) + 'em' : '0em';
-			velements[2*j+1].style['height'] = xmd.channels[j].active ?  (5.0 * xmd.channels[j].volume * xmd.channels[j].panning) + 'em' : '0em';
+			celements[j].innerText = [ 'A-', 'A#', 'B-', 'C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#' ][Math.round(12.0 * Math.log(xmd.channels[j].frequency / 440.0) / Math.log(2)) % 12] + Math.floor(Math.log(xmd.channels[j].frequency) / Math.log(2) - 10);
 
-			velements[2*j+1].style['background-color'] = velements[2*j].style['background-color'] = 'hsl(' + (360 * (xmd.channels[j].instrument - 1) / ninsts) + ', 100%, 40%)';
+			velements[2*j].style['height'] = (5.0 * xmd.channels[j].volume * (1.0 - xmd.channels[j].panning)) + 'em';
+			velements[2*j+1].style['height'] = (5.0 * xmd.channels[j].volume * xmd.channels[j].panning) + 'em';
 
-			felements[j].style['opacity'] = xmd.channels[j].active ? xmd.channels[j].volume : '0';
+			velements[2*j+1].style['background'] =
+				velements[2*j].style['background'] =
+				felements[j].style['background'] =
+				'hsl(' + (360 * (xmd.channels[j].instrument - 1) / ninsts) + ', 100%, 40%)';
+
+			felements[j].style['opacity'] = xmd.channels[j].volume;
 			felements[j].style['bottom'] = (15.0 * (Math.log(xmd.channels[j].frequency) / Math.log(2.0) - 13.0)) + '%';
-			felements[j].style['background-color'] = 'hsl(' + (360 * (xmd.channels[j].instrument - 1) / ninsts) + ', 100%, 40%)';
 		}
 	};
-
-	requestAnimationFrame(render);
+	render();
 };
