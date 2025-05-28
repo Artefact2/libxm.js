@@ -9,25 +9,26 @@
 "use strict";
 
 Module['onRuntimeInitialized'] = function() {
-	var AUDIO_BUFFER_LENGTH = 4096;
-	var XM_BUFFER_LENGTH = 256;
+	const AUDIO_BUFFER_LENGTH = 4096;
+	const XM_BUFFER_LENGTH = 256;
 	const RATE = 44100;
-	var MAX_XMDATA = 256;
+	const MAX_XMDATA = 256;
 
-	var audioContext = new AudioContext();
-	var buffers = [
+	const audioContext = new AudioContext();
+	const gain_node = audioContext.createGain();
+	gain_node.connect(audioContext.destination);
+	const buffers = [
 		audioContext.createBuffer(2, AUDIO_BUFFER_LENGTH, RATE),
 		audioContext.createBuffer(2, AUDIO_BUFFER_LENGTH, RATE),
 	];
 
-	var LATENCY_COMP = RATE * (audioContext.outputLatency | audioContext.baseLatency | 0.25) + AUDIO_BUFFER_LENGTH;
+	const LATENCY_COMP = RATE * (
+		audioContext.outputLatency + audioContext.baseLatency
+	) + AUDIO_BUFFER_LENGTH;
 
-	var playing = false;
 	var needsResync = true;
 	var t0 = 0; /* Sync point in audio ctx */
 	var s0 = 0; /* Sync point in xm ctx */
-	var amp = 1.0;
-	var clip = false;
 
 	var xmActions = [];
 	let ctx = 0;
@@ -66,19 +67,22 @@ Module['onRuntimeInitialized'] = function() {
 		reader.readAsArrayBuffer(file);
 	};
 
-	var fillBuffer = function(buffer) {
-		var l = buffer.getChannelData(0);
-		var r = buffer.getChannelData(1);
+	const fillBuffer = function(buffer) {
+		const l = buffer.getChannelData(0);
+		const r = buffer.getChannelData(1);
 
-		for(var off = 0; off < AUDIO_BUFFER_LENGTH; off += XM_BUFFER_LENGTH) {
-			Module['_xm_generate_samples'](ctx, cFloatArray, XM_BUFFER_LENGTH);
-			for(var j = 0; j < XM_BUFFER_LENGTH; ++j) {
-				l[off+j] = Module['getValue'](cFloatArray + 8 * j, 'float') * amp;
-				r[off+j] = Module['getValue'](cFloatArray + 8 * j + 4, 'float') * amp;
-				if(!clip && (l[j] < -1.0 || l[j] > 1.0 || r[j] < -1.0 || r[j] > 1.0)) {
-					clip = true;
-				}
-			}
+		for(let off = 0; off < AUDIO_BUFFER_LENGTH; off += XM_BUFFER_LENGTH) {
+			Module['_xm_generate_samples_noninterleaved'](ctx, cFloatArray, cFloatArray + XM_BUFFER_LENGTH * 4, XM_BUFFER_LENGTH);
+			l.set(new Float32Array(
+				Module['HEAPU8'].buffer,
+				cFloatArray,
+				XM_BUFFER_LENGTH
+			), off);
+			r.set(new Float32Array(
+				Module['HEAPU8'].buffer,
+				cFloatArray + XM_BUFFER_LENGTH * 4,
+				XM_BUFFER_LENGTH
+			), off);
 
 			var xmd = {};
 
@@ -115,7 +119,7 @@ Module['onRuntimeInitialized'] = function() {
 				var s = audioContext.createBufferSource();
 				s.onended = makeSourceGenerator(index, start + 2 * AUDIO_BUFFER_LENGTH);
 				s.buffer = buffers[index];
-				s.connect(audioContext.destination);
+				s.connect(gain_node);
 
 				if(ctx !== 0) {
 					if(needsResync) {
@@ -145,16 +149,6 @@ Module['onRuntimeInitialized'] = function() {
 		(makeSourceGenerator(1, t + AUDIO_BUFFER_LENGTH))();
 	};
 
-	var pause = function() {
-		audioContext.suspend();
-		playing = false;
-	};
-
-	var resume = function() {
-		audioContext.resume();
-		playing = true;
-	}
-
 	document.getElementById('nojs').remove();
 	const form = document.createElement('form');
 	form.setAttribute('id', 'actions');
@@ -163,10 +157,16 @@ Module['onRuntimeInitialized'] = function() {
 	const gminus = document.createElement('button');
 	gminus.innerText = 'Volume -';
 	gminus.setAttribute('title', 'Lower gain by 1 dB');
+	gminus.onclick = function() {
+		gain_node.gain.value /= 1.25892541179;
+	};
 
 	const gplus = document.createElement('button');
 	gplus.innerText = 'Volume +';
 	gplus.setAttribute('title', 'Increase gain by 1 dB (MAY CREATE CLIPPING)');
+	gplus.onclick = function() {
+		gain_node.gain.value *= 1.25892541179;
+	};
 
 	var ulabel = document.createElement('label');
 	ulabel.innerText = 'Load .XM';
@@ -180,7 +180,7 @@ Module['onRuntimeInitialized'] = function() {
 	var ppb = document.createElement('button');
 	ppb.innerText = 'Play/Pause';
 	ppb.setAttribute('title', 'Play/Pause');
-	ppb.classList.add('blinkred');
+	ppb.classList.add('br');
 
 	form.append(gminus, gplus, ulabel, input, ppb);
 	document.body.append(form);
@@ -189,19 +189,8 @@ Module['onRuntimeInitialized'] = function() {
 		return false;
 	};
 
-	gminus.onclick = function() {
-		amp /= 1.25892541179;
-		clip = false;
-	};
-
-	gplus.onclick = function() {
-		amp *= 1.25892541179;
-	};
-
 	var realLoadModule = function(file) {
 		loadModule(file, function() {
-			amp = 1.0;
-			clip = false;
 			needsResync = true;
 			dinstruments.replaceChildren();
 			dchannels.replaceChildren();
@@ -241,11 +230,11 @@ Module['onRuntimeInitialized'] = function() {
 	};
 
 	ppb.onclick = function(e) {
-                ppb.classList.remove('blinkred');
-		if(playing === true) {
-			pause();
+		ppb.classList.remove('br');
+		if(audioContext.state === "running") {
+			audioContext.suspend();
 		} else {
-			resume();
+			audioContext.resume();
 		}
 	};
 
@@ -323,8 +312,6 @@ Module['onRuntimeInitialized'] = function() {
 			felements[j].style['bottom'] = (15.0 * (Math.log(xmd.channels[j].frequency) / Math.log(2.0) - 13.0)) + '%';
 			felements[j].style['background-color'] = 'hsl(' + (360 * (xmd.channels[j].instrument - 1) / ninsts) + ', 100%, 40%)';
 		}
-
-		gplus.classList.toggle('clip', clip);
 	};
 
 	setupSources();

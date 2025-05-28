@@ -130,10 +130,6 @@ form#actions > button, form#actions > label {
 	font-size: 1rem;
 }
 
-form#actions > button.clip {
-	background-color: red;
-}
-
 form#actions > button:active {
 	color: red;
 	border-style: inset;
@@ -149,14 +145,11 @@ h1 {
 	display: none;
 }
 
-button.blinkred {
-	animation-name: bred;
-	animation-duration: 1s;
-	animation-iteration-count: infinite;
-	animation-timing-function: steps(2);
+.br {
+	animation: x 1s infinite steps(2);
 }
 
-@keyframes bred {
+@keyframes x {
 	from { color: black; }
 	to { color: red; }
 }
