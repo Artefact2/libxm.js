@@ -31,7 +31,6 @@ Module['onRuntimeInitialized'] = function() {
 	let ctx = 0;
 	let generated_buffers = 0;
 	let generated_samples = 0;
-	const cFloatArray = Module['_f'];
 
 	const dinstruments = document.getElementById('i');
 	const dchannels = document.getElementById('c');
@@ -44,19 +43,19 @@ Module['onRuntimeInitialized'] = function() {
 	const felements = [];
 	const xmdata = [];
 
-	var loadModule = function(file, success, failure) {
+	var loadModule = function(file, success) {
 		var reader = new FileReader();
 		reader.onloadend = function() {
-			const view = new Int8Array(reader.result);
+			const view = new Uint8Array(reader.result);
 			if(view.length > 16 << 20) {
 				ctx = 0;
 			} else {
-				Module['writeArrayToMemory'](view, Module['_m']);
+				Module['HEAPU8'].set(view, Module['_n'] + 6146);
 				ctx = Module['_a']();
 			}
 
 			if(ctx === 0) {
-				failure();
+				alert('An error happened while loading the module, check the console for more info.');
 				return;
 			}
 
@@ -69,17 +68,20 @@ Module['onRuntimeInitialized'] = function() {
 		const l = buffer.getChannelData(0);
 		const r = buffer.getChannelData(1);
 
+		if(ctx === 0) {
+			l.fill(0);
+			r.fill(0);
+			return;
+		}
+
 		for(let off = 0; off < AUDIO_BUFFER_LENGTH; off += XM_BUFFER_LENGTH) {
-			Module['_xm_generate_samples_noninterleaved'](ctx, cFloatArray, cFloatArray + XM_BUFFER_LENGTH * 4, XM_BUFFER_LENGTH);
-			l.set(new Float32Array(
-				Module['HEAPU8'].buffer,
-				cFloatArray,
-				XM_BUFFER_LENGTH
+			const cFloatArray = Module['_b']() / 4;
+			l.set(Module['HEAPF32'].subarray(
+				cFloatArray, cFloatArray + XM_BUFFER_LENGTH
 			), off);
-			r.set(new Float32Array(
-				Module['HEAPU8'].buffer,
-				cFloatArray + XM_BUFFER_LENGTH * 4,
-				XM_BUFFER_LENGTH
+			r.set(Module['HEAPF32'].subarray(
+				cFloatArray + XM_BUFFER_LENGTH,
+				cFloatArray + 2 * XM_BUFFER_LENGTH
 			), off);
 
 			var xmd = {};
@@ -116,14 +118,7 @@ Module['onRuntimeInitialized'] = function() {
 		s.onended = generate_buffer;
 		s.buffer = buffers[index];
 		s.connect(gain_node);
-
-		if(ctx !== 0) {
-			fillBuffer(buffers[index]);
-		} else {
-			buffers[index].getChannelData(0).fill(0);
-			buffers[index].getChannelData(1).fill(0);
-		}
-
+		fillBuffer(buffers[index]);
 		s.start(audioContextOffset
 			+ (generated_buffers++) * AUDIO_BUFFER_LENGTH / RATE);
 	};
@@ -139,14 +134,14 @@ Module['onRuntimeInitialized'] = function() {
 	gminus.innerText = 'Volume -';
 	gminus.setAttribute('title', 'Lower gain by 1 dB');
 	gminus.onclick = function() {
-		gain_node.gain.value /= 1.25892541179;
+		gain_node.gain.value /= 1.26;
 	};
 
 	const gplus = document.createElement('button');
 	gplus.innerText = 'Volume +';
 	gplus.setAttribute('title', 'Increase gain by 1 dB (MAY CREATE CLIPPING)');
 	gplus.onclick = function() {
-		gain_node.gain.value *= 1.25892541179;
+		gain_node.gain.value *= 1.26;
 	};
 
 	var ulabel = document.createElement('label');
@@ -182,9 +177,8 @@ Module['onRuntimeInitialized'] = function() {
 			dfrequencies.replaceChildren();
 			xmdata.splice(0, xmdata.length);
 
-			nchans = Module['getValue'](Module['_n'], 'i16');
-			ninsts = nchans % 256;
-			nchans >>= 8;
+			nchans = Module['HEAPU8'][Module['_n']];
+			ninsts = Module['HEAPU8'][Module['_n'] + 1];
 
 			for(var i = 0; i < ninsts; ++i) {
 				dinstruments.append(ielements[i] = document.createElement('div'));
@@ -202,10 +196,12 @@ Module['onRuntimeInitialized'] = function() {
 				felements[j].setAttribute('style', 'width: ' + (100 / nchans) + '%; left: ' + (100 * j / nchans) + '%; opacity: 0;');
 			}
 
-			document.getElementById('it').innerText =
-				Module['AsciiToString'](Module['_s']);
-		}, function() {
-			alert('An error happened while loading the module, check the console for more info.');
+			for(let i = Module['_n'] + 2;; ++i) {
+				if(Module['HEAPU8'][i] === 0) {
+					document.getElementById('it').innerText = (new TextDecoder("ascii")).decode(Module['HEAPU8'].subarray(Module['_n'] + 2, i));
+					break;
+				}
+			}
 		});
 	};
 

@@ -14,12 +14,16 @@
 #define RATE 44100
 #define XM_BUFFER_LENGTH 256
 
-char m[16 << 20]; /* Module data, filled in libxm.js */
 static char mempool[48 << 20]; /* Memory for xm_context_t */
 
-float f[2 * XM_BUFFER_LENGTH]; /* Buffer for audio frames, read by libxm.js */
-uint16_t n; /* Packed number of channels/instruments */
-char s[24*256]; /* Formatted module/tracker/instrument text */
+static float frames[2 * XM_BUFFER_LENGTH]; /* Buffer for audio frames, read by
+                                              libxm.js */
+struct {
+	uint8_t channels;
+	uint8_t instruments;
+	char s[24 * 256]; /* Formatted module/tracker/instrument text */
+	char m[16 << 20]; /* Module data, filled in libxm.js */
+} n;
 
 static char* strcpy(char* dst, const char* src) {
 	while(*src) {
@@ -33,7 +37,7 @@ static char* strcpy(char* dst, const char* src) {
 xm_context_t* a() {
 	xm_prescan_data_t* p = (void*)
 		(mempool + sizeof(mempool) - XM_PRESCAN_DATA_SIZE);
-	if(xm_prescan_module(m, sizeof(m), p) == false) {
+	if(xm_prescan_module(n.m, sizeof(n.m), p) == false) {
 		return 0;
 	}
 
@@ -42,12 +46,12 @@ xm_context_t* a() {
 	}
 
 	xm_context_t* c =
-		xm_create_context(mempool, p, m, sizeof(m), RATE);
+		xm_create_context(mempool, p, n.m, sizeof(n.m), RATE);
 
-	n = (uint16_t)(xm_get_number_of_channels(c) << 8)
-		| xm_get_number_of_instruments(c);
+	n.channels = xm_get_number_of_channels(c);
+	n.instruments = xm_get_number_of_instruments(c);
 
-	char* t = strcpy(s, xm_get_module_name(c));
+	char* t = strcpy(n.s, xm_get_module_name(c));
 	*t = '\n'; ++t;
 	t = strcpy(t, xm_get_tracker_name(c));
 	*t = '\n'; ++t;
@@ -59,4 +63,13 @@ xm_context_t* a() {
 	*t = '\0';
 
 	return c;
+}
+
+/* Generate audio frames and return the buffer. */
+float* b() {
+	xm_generate_samples_noninterleaved((void*)mempool,
+	                                   frames,
+	                                   frames + XM_BUFFER_LENGTH * 4,
+	                                   XM_BUFFER_LENGTH);
+	return frames;
 }
