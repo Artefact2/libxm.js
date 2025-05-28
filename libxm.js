@@ -35,10 +35,10 @@ Module['onRuntimeInitialized'] = function() {
 	var cFloatArray = Module['_f'];
 	var cSamplesPtr = Module['_l'];
 
-	const dinstruments = document.getElementById('instruments');
-	const dchannels = document.getElementById('channels');
-	const dvolumes = document.getElementById('volumes');
-	const dfrequencies = document.getElementById('frequencies');
+	const dinstruments = document.getElementById('i');
+	const dchannels = document.getElementById('c');
+	const dvolumes = document.getElementById('v');
+	const dfrequencies = document.getElementById('f');
 	let ninsts = 0, nchans = 0;
 	const ielements = [];
 	const celements = [];
@@ -149,9 +149,9 @@ Module['onRuntimeInitialized'] = function() {
 		(makeSourceGenerator(1, t + AUDIO_BUFFER_LENGTH))();
 	};
 
-	document.getElementById('nojs').remove();
+	document.getElementById('n').remove();
 	const form = document.createElement('form');
-	form.setAttribute('id', 'actions');
+	form.setAttribute('id', 'a');
 	form.onsubmit = function(e) { e.preventDefault(); };
 
 	const gminus = document.createElement('button');
@@ -241,22 +241,22 @@ Module['onRuntimeInitialized'] = function() {
 	dinstruments.onclick = function(e) {
 		const div = e.target.closest('div');
 		if(!dinstruments.contains(div)) return;
-		div.classList.toggle('muted');
+		div.classList.toggle('m');
 
 		if(ctx === 0) return;
-		Module['_xm_mute_instrument'](ctx, Array.prototype.indexOf.call(dinstruments.children, div)+1, div.classList.contains('muted'));
+		Module['_xm_mute_instrument'](ctx, Array.prototype.indexOf.call(dinstruments.children, div)+1, div.classList.contains('m'));
 	};
 
 	dchannels.onclick = function(e) {
 		const div = e.target.closest('div');
 		if(!dchannels.contains(div)) return;
-		div.classList.toggle('muted');
+		div.classList.toggle('m');
 
 		if(ctx === 0) return;
-		Module['_xm_mute_channel'](ctx, Array.prototype.indexOf.call(dchannels.children, div)+1, div.classList.contains('muted'));
+		Module['_xm_mute_channel'](ctx, Array.prototype.indexOf.call(dchannels.children, div)+1, div.classList.contains('m'));
 	};
 
-	document.getElementById('mods').onclick = function(e) {
+	document.getElementById('x').onclick = function(e) {
 		e.preventDefault();
 		if(e.target.getAttribute('href') === null) return;
 
@@ -270,7 +270,7 @@ Module['onRuntimeInitialized'] = function() {
 		xhr.send();
 	};
 
-        const mods = document.querySelectorAll('ul#mods a');
+        const mods = document.querySelectorAll('#x a');
 	const n = window.location.hash.length >= 2
 	      ? parseInt(window.location.hash.substring(1))
 	      : Math.floor(Math.random() * mods.length);
