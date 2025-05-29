@@ -69,7 +69,7 @@ xm_context_t* a() {
 float* b() {
 	xm_generate_samples_noninterleaved((void*)mempool,
 	                                   frames,
-	                                   frames + XM_BUFFER_LENGTH * 4,
+	                                   frames + XM_BUFFER_LENGTH,
 	                                   XM_BUFFER_LENGTH);
 	return frames;
 }
