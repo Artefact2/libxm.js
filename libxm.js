@@ -185,30 +185,26 @@ Module['onRuntimeInitialized'] = () => {
 
 	const gminus = document.createElement('button');
 	gminus.innerText = 'Volume -';
-	gminus.setAttribute('title', 'Lower gain by 1 dB');
 	gminus.onclick = () => {
 		gain_node.gain.value /= 1.26;
 	};
 
 	const gplus = document.createElement('button');
 	gplus.innerText = 'Volume +';
-	gplus.setAttribute('title', 'Increase gain by 1 dB (MAY CREATE CLIPPING)');
 	gplus.onclick = () => {
 		gain_node.gain.value *= 1.26;
 	};
 
 	const ulabel = document.createElement('label');
-	ulabel.innerText = 'Load .XM';
-	ulabel.setAttribute('title', 'Load .XM module…');
-	ulabel.setAttribute('for', 'iupload');
+	ulabel.innerText = 'Load XM/MOD';
+	ulabel.setAttribute('for', 'z');
 
 	const input = document.createElement('input');
 	input.setAttribute('type', 'file');
-	input.setAttribute('id', 'iupload');
+	input.setAttribute('id', 'z');
 
 	const ppb = document.createElement('button');
 	ppb.innerText = 'Play/Pause';
-	ppb.setAttribute('title', 'Play/Pause');
 	ppb.classList.add('br');
 
 	form.append(gminus, gplus, ulabel, input, ppb);
