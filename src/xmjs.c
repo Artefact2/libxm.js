@@ -51,17 +51,16 @@ xm_context_t* a() {
 	n.channels = xm_get_number_of_channels(c);
 	n.instruments = xm_get_number_of_instruments(c);
 
+	__builtin_memset(n.s, 0, sizeof(n.s));
 	char* t = strcpy(n.s, xm_get_module_name(c));
-	*t = '\n'; ++t;
+	*t = '\0'; ++t;
 	t = strcpy(t, xm_get_tracker_name(c));
-	*t = '\n'; ++t;
-	*t = '\n'; ++t;
+	*t = '\0'; ++t;
+	*t = '\0'; ++t;
 	for(uint8_t i = 1; i <= xm_get_number_of_instruments(c); ++i) {
 		t = strcpy(t, xm_get_instrument_name(c, i));
-		*t = '\n'; ++t;
+		*t = '\0'; ++t;
 	}
-	*t = '\0';
-
 	return c;
 }
 

@@ -3,7 +3,7 @@ libxm.js
 
 An emscripten port of [libxm](https://github.com/Artefact2/libxm) with most
 features enabled and simple visualisation gfx. Builds a standalone HTML file,
-**15376 bytes** after gzip.
+**15589 bytes** after gzip.
 
 Released under the WTFPL license, version 2.
 

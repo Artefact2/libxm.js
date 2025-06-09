@@ -89,12 +89,31 @@ Module['onRuntimeInitialized'] = () => {
 				(100 * j / nchans + 50 / nchans) + '%';
 		}
 
-		let i;
-		for(i = Module['_n'] + 2; Module['HEAPU8'][i]; ++i) {}
-		document.getElementById('it').innerText =
-			(new TextDecoder()).decode(
-				Module['HEAPU8'].subarray(Module['_n'] + 2, i)
-			);
+		let it = '';
+		/* Not perfect, but close to FT208 */
+		const ft2cp = ""
+		      + "\n\\×↓ä↑å⁰¹²³⁴⁵⁶ÄÅ" /* 0x */
+		      + "⁷⁸⁹AöBCDEÖF½⬆⬇⬅➡" /* 1x */
+		      + " !\"#$%&'()*+,-./" /* 2x */
+		      + "0123456789:;<=>?" /* 3x */
+		      + "©ABCDEFGHIJKLMNO" /* 4x */
+		      + "PQRSTUVWXYZ[\\]|_" /* 5x */
+		      + "`abcdefghijklmno" /* 6x */
+		      + "pqrstuvwxyz{|}  " /* 7x */
+		      + " \\×↓ä↑å⁰¹²³⁴⁵⁶ÄÅ" /* 8x */
+		      + "⁷⁸⁹AöBCDEÖF½⬆⬇⬅➡" /* 9x */
+		      + "ᴬᴮꟲᴰᴱꟳ  ()*+,-./" /* Ax */
+		      + "0123456789:;<=>?" /* Bx */
+		      + "©ABCDEFGHIJKLMNO" /* Cx */
+		      + "PQRSTUVWXYZ[\\]|_" /* Dx */
+		      + "`abcdefghijklmno" /* Ex */
+		      + "pqrstuvwxyz{|}  " /* Fx */;
+		let end = Module['_n'] + 6143;
+		while(!Module['HEAPU8'][end]) --end;
+		for(let i = Module['_n'] + 2;  i <= end; ++i) {
+			it += ft2cp[Module['HEAPU8'][i]];
+		}
+		document.getElementById('it').innerText = it;
 	};
 
 	const loadModuleFile = file => {
