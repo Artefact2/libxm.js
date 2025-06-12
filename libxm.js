@@ -254,19 +254,13 @@ Module['onRuntimeInitialized'] = () => {
 		Module['_xm_mute_channel'](ctx, celements.indexOf(div)+1, div.classList.contains('m'));
 	};
 
-	document.getElementById('x').onclick = e => {
-		e.preventDefault();
-		if(e.target.getAttribute('href') === null) return;
-		fetch(e.target.getAttribute('href'))
+	(window.onhashchange = () => {
+		const id = Number(window.location.hash.substring(1));
+		if(!id) return;
+		fetch('https://api.modarchive.org/downloads.php?moduleid=' + id)
 			.then(response => response.blob())
 			.then(response => loadModuleFile(response));
-	};
-
-        const mods = document.querySelectorAll('#x a');
-	const n = window.location.hash.length >= 2
-	      ? parseInt(window.location.hash.substring(1))
-	      : Math.floor(Math.random() * mods.length);
-	mods[n].click();
+	})();
 
 	const render = () => {
 		requestAnimationFrame(render);
