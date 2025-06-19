@@ -8,7 +8,7 @@
 
 "use strict";
 
-Module['onRuntimeInitialized'] = () => {
+const START = () => {
 	const AUDIO_BUFFER_LENGTH = 4096;
 	const XM_BUFFER_LENGTH = 256;
 	const RATE = 44100;
@@ -311,4 +311,12 @@ Module['onRuntimeInitialized'] = () => {
 		}
 	};
 	render();
+};
+
+Module['onRuntimeInitialized'] = () => {
+	if(document.readyState === "loading") {
+		document.addEventListener("DOMContentLoaded", START);
+	} else {
+		START();
+	}
 };
