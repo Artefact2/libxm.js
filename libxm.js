@@ -296,7 +296,12 @@ const START = () => {
 				continue;
 			}
 
-			celements[j].innerText = [ 'A-', 'A#', 'B-', 'C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#' ][Math.round(12.0 * Math.log(xmd.channels[j].frequency / 440.0) / Math.log(2)) % 12] + Math.floor(Math.log(xmd.channels[j].frequency) / Math.log(2) - 10);
+			const note =
+			      12 * Math.log2(
+				      xmd.channels[j].frequency / 522.6875
+			      );
+			const inote = Math.max(Math.round(note), 0);
+			celements[j].innerText = [ 'C-', 'C#', 'D-', 'D#', 'E-', 'F-', 'F#', 'G-', 'G#', 'A-', 'A#', 'B-' ][inote % 12] + Math.floor(inote / 12);
 
 			velements[2*j].style['height'] = (5.0 * xmd.channels[j].volume * (1.0 - xmd.channels[j].panning)) + 'em';
 			velements[2*j+1].style['height'] = (5.0 * xmd.channels[j].volume * xmd.channels[j].panning) + 'em';
@@ -307,7 +312,7 @@ const START = () => {
 				'hsl(' + (360 * (xmd.channels[j].instrument - 1) / ninsts) + ', 100%, 40%)';
 
 			felements[j].style['opacity'] = xmd.channels[j].volume;
-			felements[j].style['bottom'] = (15.0 * (Math.log(xmd.channels[j].frequency) / Math.log(2.0) - 13.0)) + '%';
+			felements[j].style['bottom'] = (note / 1.2) + '%';
 		}
 	};
 	render();
