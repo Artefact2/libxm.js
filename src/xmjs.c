@@ -11,7 +11,6 @@
 /* The public symbols are relatively terse, because emscripten cannot mangle
    them. */
 
-#define RATE 44100
 #define XM_BUFFER_LENGTH 256
 
 static char mempool[48 << 20]; /* Memory for xm_context_t */
@@ -21,7 +20,7 @@ static float frames[2 * XM_BUFFER_LENGTH]; /* Buffer for audio frames, read by
 struct {
 	uint8_t channels;
 	uint8_t instruments;
-	char s[24 * 256]; /* Formatted module/tracker/instrument text */
+	char s[32 * 256]; /* Formatted module/tracker/instrument text */
 	char m[16 << 20]; /* Module data, filled in libxm.js */
 } n;
 
@@ -46,7 +45,7 @@ xm_context_t* a() {
 	}
 
 	xm_context_t* c =
-		xm_create_context(mempool, p, n.m, sizeof(n.m), RATE);
+		xm_create_context(mempool, p, n.m, sizeof(n.m));
 
 	n.channels = xm_get_number_of_channels(c);
 	n.instruments = xm_get_number_of_instruments(c);

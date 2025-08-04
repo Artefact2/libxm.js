@@ -108,7 +108,7 @@ const START = () => {
 		      + "PQRSTUVWXYZ[\\]|_" /* Dx */
 		      + "`abcdefghijklmno" /* Ex */
 		      + "pqrstuvwxyz{|}  " /* Fx */;
-		let end = Module['_n'] + 6143;
+		let end = Module['_n'] + 8194;
 		while(!Module['HEAPU8'][end]) --end;
 		for(let i = Module['_n'] + 2;  i <= end; ++i) {
 			it += ft2cp[Module['HEAPU8'][i]];
@@ -123,7 +123,7 @@ const START = () => {
 			if(view.length > 16 << 20) {
 				ctx = 0;
 			} else {
-				Module['HEAPU8'].set(view, Module['_n'] + 6146);
+				Module['HEAPU8'].set(view, Module['_n'] + 8194);
 				ctx = Module['_a']();
 			}
 
@@ -215,7 +215,7 @@ const START = () => {
 	};
 
 	const ulabel = document.createElement('label');
-	ulabel.innerText = 'Load XM/MOD';
+	ulabel.innerText = 'Load XM/MOD/S3M';
 	ulabel.setAttribute('for', 'z');
 
 	const input = document.createElement('input');
