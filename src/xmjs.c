@@ -71,3 +71,7 @@ float* b() {
 	                                   XM_BUFFER_LENGTH);
 	return frames;
 }
+
+char* x() {
+	return (char*)&n;
+}

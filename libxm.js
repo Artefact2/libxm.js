@@ -53,8 +53,8 @@ const START = () => {
 		dfrequencies.replaceChildren();
 		xmdata.length = 0;
 
-		nchans = Module['HEAPU8'][Module['_n']];
-		ninsts = Module['HEAPU8'][Module['_n'] + 1];
+		nchans = Module['HEAPU8'][Module['_x']()];
+		ninsts = Module['HEAPU8'][Module['_x']() + 1];
 
 		for(let i = 0; i < ninsts; ++i) {
 			dinstruments.append(
@@ -108,9 +108,9 @@ const START = () => {
 		      + "PQRSTUVWXYZ[\\]|_" /* Dx */
 		      + "`abcdefghijklmno" /* Ex */
 		      + "pqrstuvwxyz{|}  " /* Fx */;
-		let end = Module['_n'] + 8194;
+		let end = Module['_x']() + 8194;
 		while(!Module['HEAPU8'][end]) --end;
-		for(let i = Module['_n'] + 2;  i <= end; ++i) {
+		for(let i = Module['_x']() + 2;  i <= end; ++i) {
 			it += ft2cp[Module['HEAPU8'][i]];
 		}
 		document.getElementById('it').innerText = it;
@@ -123,7 +123,7 @@ const START = () => {
 			if(view.length > 16 << 20) {
 				ctx = 0;
 			} else {
-				Module['HEAPU8'].set(view, Module['_n'] + 8194);
+				Module['HEAPU8'].set(view, Module['_x']() + 8194);
 				ctx = Module['_a']();
 			}
 

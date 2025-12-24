@@ -3,7 +3,7 @@ libxm.js
 
 An emscripten port of [libxm](https://github.com/Artefact2/libxm) with most
 features enabled and simple visualisation gfx. Builds a standalone HTML file,
-**18925 bytes** after gzip. Loads modules from user supplied files, or directly
+**17996 bytes** after gzip. Loads modules from user supplied files, or directly
 from The Mod Archive.
 
 Released under the WTFPL license, version 2.
@@ -48,16 +48,18 @@ index ab20707..185b6e7 100644
  	out->samples_data_length = 0;
  	for(uint8_t i = 0; i < out->num_instruments; ++i) {
 diff --git i/src/xm_internal.h w/src/xm_internal.h
-index 8441e48..83d80f0 100644
+index e31037b..cbe7741 100644
 --- i/src/xm_internal.h
 +++ w/src/xm_internal.h
-@@ -11,7 +11,6 @@
- #include <string.h>
- #include <stdckdint.h>
- #include <stddef.h>
+@@ -11,7 +11,8 @@
+#include <string.h>
+#include <stdckdint.h>
+#include <stddef.h>
 -#include <stdbit.h>
++
++#define _Float32 float
 
- #define POINTER_SIZE (UINTPTR_MAX == UINT64_MAX ? 8 : 4)
+#define POINTER_SIZE (UINTPTR_MAX == UINT64_MAX ? 8 : 4)
 ```
 
 * Run `make` and view `frontend/index.html` in your browser
