@@ -3,8 +3,8 @@ libxm.js
 
 An emscripten port of [libxm](https://github.com/Artefact2/libxm) with most
 features enabled and simple visualisation gfx. Builds a standalone HTML file,
-**17996 bytes** after gzip. Loads modules from user supplied files, or directly
-from The Mod Archive.
+**16371 bytes** after `brotli -9`. Loads modules from user supplied files, or
+directly from The Mod Archive.
 
 Released under the WTFPL license, version 2.
 
